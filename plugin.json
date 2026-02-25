@@ -1,0 +1,19 @@
+{
+    "name": "workflow-plugin-authz",
+    "version": "1.0.0",
+    "description": "RBAC authorization plugin using Casbin",
+    "author": "GoCodeAlone",
+    "license": "MIT",
+    "type": "external",
+    "tier": "core",
+    "minEngineVersion": "0.2.0",
+    "keywords": ["authz", "rbac", "casbin", "authorization", "policy"],
+    "homepage": "https://github.com/GoCodeAlone/workflow-plugin-authz",
+    "repository": "https://github.com/GoCodeAlone/workflow-plugin-authz",
+    "capabilities": {
+        "configProvider": false,
+        "moduleTypes": ["authz.casbin"],
+        "stepTypes": ["step.authz_check"],
+        "triggerTypes": []
+    }
+}
