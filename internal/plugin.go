@@ -49,7 +49,12 @@ func (p *authzPlugin) CreateModule(typeName, name string, config map[string]any)
 
 // StepTypes returns the step type names this plugin provides.
 func (p *authzPlugin) StepTypes() []string {
-	return []string{"step.authz_check"}
+	return []string{
+		"step.authz_check",
+		"step.authz_add_policy",
+		"step.authz_remove_policy",
+		"step.authz_role_assign",
+	}
 }
 
 // CreateStep creates a step instance of the given type.
@@ -57,6 +62,12 @@ func (p *authzPlugin) CreateStep(typeName, name string, config map[string]any) (
 	switch typeName {
 	case "step.authz_check":
 		return newAuthzCheckStep(name, config)
+	case "step.authz_add_policy":
+		return newAuthzAddPolicyStep(name, config)
+	case "step.authz_remove_policy":
+		return newAuthzRemovePolicyStep(name, config)
+	case "step.authz_role_assign":
+		return newAuthzRoleAssignStep(name, config)
 	default:
 		return nil, fmt.Errorf("authz plugin: unknown step type %q", typeName)
 	}
