@@ -42,7 +42,7 @@ type adapterConfig struct {
 	Path string `yaml:"path"`
 
 	// GORM adapter fields.
-	Driver    string `yaml:"driver"`    // "postgres", "mysql", or "sqlite3"
+	Driver    string `yaml:"driver"` // "postgres", "mysql", or "sqlite3"
 	DSN       string `yaml:"dsn"`
 	TableName string `yaml:"table_name"` // optional; defaults to "casbin_rule"
 }
