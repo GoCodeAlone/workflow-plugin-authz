@@ -2,10 +2,6 @@ module github.com/GoCodeAlone/workflow-plugin-authz
 
 go 1.26
 
-// gorm.io/plugin/dbresolver v1.3.0 uses a removed field (PreparedSQL) in gorm.PreparedStmtDB.
-// Pin to v1.5.3 which is compatible with the current gorm version.
-replace gorm.io/plugin/dbresolver v1.3.0 => gorm.io/plugin/dbresolver v1.5.3
-
 require (
 	github.com/GoCodeAlone/workflow v0.2.18
 	github.com/casbin/casbin/v2 v2.135.0
