@@ -11,10 +11,8 @@ import (
 	"github.com/casbin/casbin/v2/model"
 	"github.com/casbin/casbin/v2/persist"
 	fileadapter "github.com/casbin/casbin/v2/persist/file-adapter"
-	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 )
@@ -211,7 +209,7 @@ func (m *CasbinModule) buildGORMAdapter() (persist.Adapter, error) {
 	case "mysql":
 		db, err = gorm.Open(mysql.Open(m.config.Adapter.DSN), gormCfg)
 	case "sqlite3", "sqlite":
-		db, err = gorm.Open(sqlite.Open(m.config.Adapter.DSN), gormCfg)
+		db, err = gorm.Open(openSQLite(m.config.Adapter.DSN), gormCfg)
 	default:
 		return nil, fmt.Errorf("authz.casbin %q: unsupported gorm driver %q (supported: postgres, mysql, sqlite3)", m.name, m.config.Adapter.Driver)
 	}
@@ -219,14 +217,7 @@ func (m *CasbinModule) buildGORMAdapter() (persist.Adapter, error) {
 		return nil, fmt.Errorf("authz.casbin %q: open gorm db: %w", m.name, err)
 	}
 
-	// Use NewAdapterByDBUseTableName with empty prefix.
-	// When table_name is empty, the gorm-adapter defaults to "casbin_rule".
-	tableName := m.config.Adapter.TableName
-	if tableName == "" {
-		tableName = "casbin_rule"
-	}
-
-	a, err := gormadapter.NewAdapterByDBUseTableName(db, "", tableName)
+	a, err := newGORMAdapter(db, m.config.Adapter.TableName)
 	if err != nil {
 		return nil, fmt.Errorf("authz.casbin %q: create gorm adapter: %w", m.name, err)
 	}
