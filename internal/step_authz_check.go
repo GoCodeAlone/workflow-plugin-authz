@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"text/template"
 
 	sdk "github.com/GoCodeAlone/workflow/plugin/external/sdk"
@@ -55,14 +56,19 @@ func RegisterModule(m *CasbinModule) {
 
 // defaultRegistry is a simple thread-safe module registry backed by a map.
 type defaultRegistry struct {
+	mu      sync.RWMutex
 	modules map[string]*CasbinModule
 }
 
 func (r *defaultRegistry) set(name string, m *CasbinModule) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.modules[name] = m
 }
 
 func (r *defaultRegistry) GetEnforcer(name string) (*CasbinModule, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	m, ok := r.modules[name]
 	return m, ok
 }
