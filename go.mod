@@ -8,7 +8,7 @@ replace gorm.io/plugin/dbresolver v1.3.0 => gorm.io/plugin/dbresolver v1.5.3
 
 require (
 	github.com/GoCodeAlone/workflow v0.2.18
-	github.com/casbin/casbin/v2 v2.104.0
+	github.com/casbin/casbin/v2 v2.135.0
 	github.com/casbin/gorm-adapter/v3 v3.24.0
 	gorm.io/driver/mysql v1.5.7
 	gorm.io/driver/postgres v1.5.11
