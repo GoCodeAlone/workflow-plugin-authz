@@ -36,8 +36,8 @@ github.com/DataDog/datadog-go/v5 v5.4.0 h1:Ea3eXUVwrVV28F/fo3Dr3aa+TL/Z7Xi6SUPKW
 github.com/DataDog/datadog-go/v5 v5.4.0/go.mod h1:K9kcYBlxkcPP8tvvjZZKs/m1edNAUFzBbdpTUKfCsuw=
 github.com/GoCodeAlone/go-plugin v0.0.0-20260220090904-b4c35f0e4271 h1:/oxxpYJ41BuK+/5Gp9c+0PHybyNFWeBHyCzkSVLCoMk=
 github.com/GoCodeAlone/go-plugin v0.0.0-20260220090904-b4c35f0e4271/go.mod h1:HbGQRZUIa+jbDfjsaZIMJYvrz+LnxL0mJpggfynSTMk=
-github.com/GoCodeAlone/workflow v0.2.18 h1:1NEvTyo6vAvQL/aHjb2pqo4CQt8SNrWIKit5P/bMji0=
-github.com/GoCodeAlone/workflow v0.2.18/go.mod h1:S63SHzkUZW1iDvEx3tXgZwCTCBVdqNmq097lmO/fBHg=
+github.com/GoCodeAlone/workflow v0.2.21 h1:c4k3z5hBwl4JfsZF1H6RSlYkQFCkLYVjGozJE3I1WmE=
+github.com/GoCodeAlone/workflow v0.2.21/go.mod h1:CrRkJqPmgwrUDhKjT3zwa0o5NWtfm9Up18nRJqsWuTQ=
 github.com/GoCodeAlone/yaegi v0.17.1 h1:aPAwU29L9cGceRAff02c5pjQcT5KapDB4fWFZK9tElE=
 github.com/GoCodeAlone/yaegi v0.17.1/go.mod h1:z5Pr6Wse6QJcQvpgxTxzMAevFarH0N37TG88Y9dprx0=
 github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.30.0 h1:sBEjpZlNHzK1voKq9695PJSX2o5NEXl7/OL3coiIY0c=
@@ -79,6 +79,8 @@ github.com/aws/aws-sdk-go-v2/service/apigatewayv2 v1.33.6 h1:fgxVjVpGoFpJLpwA8IF
 github.com/aws/aws-sdk-go-v2/service/apigatewayv2 v1.33.6/go.mod h1:nT2qs/zsEEMZBJmZ2MX+0JjUh+B8VOl8jAHVzDdfR9E=
 github.com/aws/aws-sdk-go-v2/service/applicationautoscaling v1.41.11 h1:sHMyvjsgVzzYNGdy5OdlYYQsNeEk1N+aui9R8JhP9HE=
 github.com/aws/aws-sdk-go-v2/service/applicationautoscaling v1.41.11/go.mod h1:Aa0zlfmZPQJnR3M1Kn7pGXKJ9qMR5zpNHBmXcjTh8Kc=
+github.com/aws/aws-sdk-go-v2/service/codebuild v1.68.10 h1:f8Umf89E6+QciH5Fk4J23EFgcukyX/FkVu7urYUcW/k=
+github.com/aws/aws-sdk-go-v2/service/codebuild v1.68.10/go.mod h1:AqtqfJs5i0n0/SBo3/FD9rs3vnubrigU5B8iz+5YVHU=
 github.com/aws/aws-sdk-go-v2/service/ec2 v1.289.1 h1:wcrNo0Fn5z1CvdyiZ9ep+JWrCFg8ImRFSf1mcxJnx6w=
 github.com/aws/aws-sdk-go-v2/service/ec2 v1.289.1/go.mod h1:Uy+C+Sc58jozdoL1McQr8bDsEvNFx+/nBY+vpO1HVUY=
 github.com/aws/aws-sdk-go-v2/service/ecs v1.72.0 h1:hggRKpv26DpYMOik3wWo1Ty5MkANoXhNobjfWpC3G4M=
