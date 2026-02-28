@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"testing"
+	"time"
 )
 
 // --- test registry ---
@@ -339,5 +340,91 @@ func TestAuthzCheckStep_403ResponseFields(t *testing.T) {
 	}
 	if body, _ := result.Output["response_body"].(string); body == "" {
 		t.Error("expected non-empty response_body")
+	}
+}
+
+func TestAuthzCheckAuditOutput(t *testing.T) {
+	mod := defaultTestModule(t)
+	reg := &testRegistry{mod: mod}
+
+	// Truncate to second precision to match RFC3339 timestamp resolution.
+	before := time.Now().UTC().Truncate(time.Second)
+
+	// Test audit=true on an allowed decision (alice is admin).
+	s := newTestStep(t, map[string]any{
+		"module": "authz",
+		"object": "/api/posts",
+		"action": "DELETE",
+		"audit":  true,
+	}, reg)
+
+	result, err := s.Execute(context.Background(),
+		nil,
+		nil,
+		map[string]any{"auth_user_id": "alice"},
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if result.StopPipeline {
+		t.Error("expected alice (admin) to be allowed")
+	}
+
+	auditRaw, ok := result.Output["audit_event"]
+	if !ok {
+		t.Fatal("expected audit_event in output when audit=true")
+	}
+	audit, ok := auditRaw.(map[string]any)
+	if !ok {
+		t.Fatalf("expected audit_event to be map[string]any, got %T", auditRaw)
+	}
+
+	if v, _ := audit["type"].(string); v != "authz_decision" {
+		t.Errorf("audit_event.type: want %q, got %q", "authz_decision", v)
+	}
+	if v, _ := audit["subject"].(string); v != "alice" {
+		t.Errorf("audit_event.subject: want %q, got %q", "alice", v)
+	}
+	if v, _ := audit["object"].(string); v != "/api/posts" {
+		t.Errorf("audit_event.object: want %q, got %q", "/api/posts", v)
+	}
+	if v, _ := audit["action"].(string); v != "DELETE" {
+		t.Errorf("audit_event.action: want %q, got %q", "DELETE", v)
+	}
+	if v, _ := audit["allowed"].(bool); !v {
+		t.Errorf("audit_event.allowed: want true, got %v", audit["allowed"])
+	}
+	if v, _ := audit["module"].(string); v != "authz" {
+		t.Errorf("audit_event.module: want %q, got %q", "authz", v)
+	}
+	tsStr, _ := audit["timestamp"].(string)
+	if tsStr == "" {
+		t.Fatal("audit_event.timestamp is empty")
+	}
+	ts, err := time.Parse(time.RFC3339, tsStr)
+	if err != nil {
+		t.Fatalf("audit_event.timestamp parse error: %v", err)
+	}
+	if ts.Before(before) {
+		t.Errorf("audit_event.timestamp %v is before test start %v", ts, before)
+	}
+
+	// Verify that audit=false (default) does NOT produce audit_event.
+	sDef := newTestStep(t, map[string]any{
+		"object": "/api/posts",
+		"action": "DELETE",
+	}, reg)
+	resultDef, err := sDef.Execute(context.Background(),
+		nil,
+		nil,
+		map[string]any{"auth_user_id": "alice"},
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("Execute (no audit): %v", err)
+	}
+	if _, present := resultDef.Output["audit_event"]; present {
+		t.Error("expected no audit_event in output when audit=false (default)")
 	}
 }
