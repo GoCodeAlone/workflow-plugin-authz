@@ -3,7 +3,7 @@ module github.com/GoCodeAlone/workflow-plugin-authz
 go 1.26
 
 require (
-	github.com/GoCodeAlone/workflow v0.3.0
+	github.com/GoCodeAlone/workflow v0.3.1
 	github.com/casbin/casbin/v2 v2.135.0
 	gorm.io/driver/mysql v1.5.7
 	gorm.io/driver/postgres v1.5.11
