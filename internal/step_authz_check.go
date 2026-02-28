@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"text/template"
+	"time"
 
 	sdk "github.com/GoCodeAlone/workflow/plugin/external/sdk"
 )
@@ -21,12 +22,14 @@ import (
 //	subject_key: "auth_user_id" # step output key carrying the subject (default: "auth_user_id")
 //	object: "/api/v1/tenants"  # static object, or Go template: "{{.request_path}}"
 //	action: "POST"             # static action, or Go template: "{{.request_method}}"
+//	audit: false               # when true, adds audit_event to output (default: false)
 type authzCheckStep struct {
 	name       string
 	moduleName string
 	subjectKey string
 	object     string
 	action     string
+	audit      bool
 
 	// parsed templates (nil when static string is used)
 	objectTmpl *template.Template
@@ -87,6 +90,9 @@ func newAuthzCheckStep(name string, config map[string]any) (*authzCheckStep, err
 	}
 	if v, ok := config["subject_key"].(string); ok && v != "" {
 		s.subjectKey = v
+	}
+	if v, ok := config["audit"].(bool); ok {
+		s.audit = v
 	}
 
 	object, _ := config["object"].(string)
@@ -169,17 +175,39 @@ func (s *authzCheckStep) Execute(
 	}
 
 	if !allowed {
-		return forbiddenResult(fmt.Sprintf("forbidden: %s is not permitted to %s %s", subject, action, object)), nil
+		result := forbiddenResult(fmt.Sprintf("forbidden: %s is not permitted to %s %s", subject, action, object))
+		if s.audit {
+			result.Output["audit_event"] = map[string]any{
+				"type":      "authz_decision",
+				"subject":   subject,
+				"object":    object,
+				"action":    action,
+				"allowed":   false,
+				"timestamp": time.Now().UTC().Format(time.RFC3339),
+				"module":    s.moduleName,
+			}
+		}
+		return result, nil
 	}
 
-	return &sdk.StepResult{
-		Output: map[string]any{
-			"authz_subject": subject,
-			"authz_object":  object,
-			"authz_action":  action,
-			"authz_allowed": true,
-		},
-	}, nil
+	output := map[string]any{
+		"authz_subject": subject,
+		"authz_object":  object,
+		"authz_action":  action,
+		"authz_allowed": true,
+	}
+	if s.audit {
+		output["audit_event"] = map[string]any{
+			"type":      "authz_decision",
+			"subject":   subject,
+			"object":    object,
+			"action":    action,
+			"allowed":   true,
+			"timestamp": time.Now().UTC().Format(time.RFC3339),
+			"module":    s.moduleName,
+		}
+	}
+	return &sdk.StepResult{Output: output}, nil
 }
 
 // forbiddenResult returns a StepResult that stops the pipeline with a 403 body.
