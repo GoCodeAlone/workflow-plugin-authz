@@ -32,7 +32,7 @@ func (p *authzPlugin) ModuleTypes() []string {
 }
 
 // CreateModule creates a module instance of the given type and registers it
-// in the global registry so that step.authz_check can locate it by name.
+// in the global registry so that step.authz_check_casbin can locate it by name.
 func (p *authzPlugin) CreateModule(typeName, name string, config map[string]any) (sdk.ModuleInstance, error) {
 	switch typeName {
 	case "authz.casbin":

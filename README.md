@@ -7,11 +7,11 @@ RBAC authorization plugin for the [workflow engine](https://github.com/GoCodeAlo
 | Type | Name |
 |---|---|
 | Module | `authz.casbin` |
-| Step | `step.authz_check` |
+| Step | `step.authz_check_casbin` |
 
 ## authz.casbin module
 
-Loads a Casbin PERM model and policy from inline YAML config. The enforcer is thread-safe and shared with all `step.authz_check` steps that reference the module by name.
+Loads a Casbin PERM model and policy from inline YAML config. The enforcer is thread-safe and shared with all `step.authz_check_casbin` steps that reference the module by name.
 
 ```yaml
 modules:
@@ -40,7 +40,7 @@ modules:
         - ["carol", "viewer"]
 ```
 
-## step.authz_check pipeline step
+## step.authz_check_casbin pipeline step
 
 Checks whether the authenticated user (injected by `step.auth_required`) has permission to perform the configured action on the configured object. Returns HTTP 403 and stops the pipeline on denial.
 
@@ -49,7 +49,7 @@ steps:
   - type: step.auth_required   # sets auth_user_id in output
     config: {}
 
-  - type: step.authz_check
+  - type: step.authz_check_casbin
     config:
       module: authz             # authz.casbin module name (default: "authz")
       subject_key: auth_user_id # step output key for the subject (default: "auth_user_id")
