@@ -6,7 +6,7 @@
     "license": "MIT",
     "type": "external",
     "tier": "core",
-    "minEngineVersion": "0.2.0",
+    "minEngineVersion": "0.3.11",
     "keywords": ["authz", "rbac", "casbin", "authorization", "policy"],
     "homepage": "https://github.com/GoCodeAlone/workflow-plugin-authz",
     "repository": "https://github.com/GoCodeAlone/workflow-plugin-authz",
@@ -14,7 +14,7 @@
         "configProvider": false,
         "moduleTypes": ["authz.casbin"],
         "stepTypes": [
-            "step.authz_check",
+            "step.authz_check_casbin",
             "step.authz_add_policy",
             "step.authz_remove_policy",
             "step.authz_role_assign"

@@ -99,10 +99,10 @@ func newAuthzCheckStep(name string, config map[string]any) (*authzCheckStep, err
 	action, _ := config["action"].(string)
 
 	if object == "" {
-		return nil, fmt.Errorf("step.authz_check %q: config.object is required", name)
+		return nil, fmt.Errorf("step.authz_check_casbin %q: config.object is required", name)
 	}
 	if action == "" {
-		return nil, fmt.Errorf("step.authz_check %q: config.action is required", name)
+		return nil, fmt.Errorf("step.authz_check_casbin %q: config.action is required", name)
 	}
 
 	// Compile as Go template if it looks like one.
@@ -110,7 +110,7 @@ func newAuthzCheckStep(name string, config map[string]any) (*authzCheckStep, err
 	if isTemplate(object) {
 		s.objectTmpl, err = template.New("object").Parse(object)
 		if err != nil {
-			return nil, fmt.Errorf("step.authz_check %q: parse object template: %w", name, err)
+			return nil, fmt.Errorf("step.authz_check_casbin %q: parse object template: %w", name, err)
 		}
 	} else {
 		s.object = object
@@ -119,7 +119,7 @@ func newAuthzCheckStep(name string, config map[string]any) (*authzCheckStep, err
 	if isTemplate(action) {
 		s.actionTmpl, err = template.New("action").Parse(action)
 		if err != nil {
-			return nil, fmt.Errorf("step.authz_check %q: parse action template: %w", name, err)
+			return nil, fmt.Errorf("step.authz_check_casbin %q: parse action template: %w", name, err)
 		}
 	} else {
 		s.action = action
@@ -143,6 +143,7 @@ func (s *authzCheckStep) Execute(
 	stepOutputs map[string]map[string]any,
 	current map[string]any,
 	_ map[string]any,
+	_ map[string]any,
 ) (*sdk.StepResult, error) {
 	// Resolve subject: search step outputs then current for the subject key.
 	subject := resolveSubject(s.subjectKey, stepOutputs, current, triggerData)
@@ -155,23 +156,23 @@ func (s *authzCheckStep) Execute(
 
 	object, err := resolve(s.object, s.objectTmpl, tmplData)
 	if err != nil {
-		return nil, fmt.Errorf("step.authz_check %q: resolve object: %w", s.name, err)
+		return nil, fmt.Errorf("step.authz_check_casbin %q: resolve object: %w", s.name, err)
 	}
 
 	action, err := resolve(s.action, s.actionTmpl, tmplData)
 	if err != nil {
-		return nil, fmt.Errorf("step.authz_check %q: resolve action: %w", s.name, err)
+		return nil, fmt.Errorf("step.authz_check_casbin %q: resolve action: %w", s.name, err)
 	}
 
 	// Look up the Casbin enforcer.
 	mod, ok := s.registry.GetEnforcer(s.moduleName)
 	if !ok {
-		return nil, fmt.Errorf("step.authz_check %q: authz module %q not found; check module name in config", s.name, s.moduleName)
+		return nil, fmt.Errorf("step.authz_check_casbin %q: authz module %q not found; check module name in config", s.name, s.moduleName)
 	}
 
 	allowed, err := mod.Enforce(subject, object, action)
 	if err != nil {
-		return nil, fmt.Errorf("step.authz_check %q: enforce: %w", s.name, err)
+		return nil, fmt.Errorf("step.authz_check_casbin %q: enforce: %w", s.name, err)
 	}
 
 	if !allowed {

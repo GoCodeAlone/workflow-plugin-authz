@@ -86,7 +86,7 @@ func execute(t *testing.T, s *authzCheckStep, triggerData, current map[string]an
 	if stepOutputs == nil {
 		stepOutputs = map[string]map[string]any{}
 	}
-	result, err := s.Execute(context.Background(), triggerData, stepOutputs, current, nil)
+	result, err := s.Execute(context.Background(), triggerData, stepOutputs, current, nil, nil)
 	if err != nil {
 		t.Fatalf("Execute error: %v", err)
 	}
@@ -308,6 +308,7 @@ func TestAuthzCheckStep_ModuleNotFound(t *testing.T) {
 		nil,
 		map[string]any{"auth_user_id": "alice"},
 		nil,
+		nil,
 	)
 	if err == nil {
 		t.Error("expected error when module not found")
@@ -327,6 +328,7 @@ func TestAuthzCheckStep_403ResponseFields(t *testing.T) {
 		nil,
 		nil,
 		map[string]any{"auth_user_id": "carol"},
+		nil,
 		nil,
 	)
 	if err != nil {
@@ -362,6 +364,7 @@ func TestAuthzCheckAuditOutput(t *testing.T) {
 		nil,
 		nil,
 		map[string]any{"auth_user_id": "alice"},
+		nil,
 		nil,
 	)
 	if err != nil {
@@ -419,6 +422,7 @@ func TestAuthzCheckAuditOutput(t *testing.T) {
 		nil,
 		nil,
 		map[string]any{"auth_user_id": "alice"},
+		nil,
 		nil,
 	)
 	if err != nil {

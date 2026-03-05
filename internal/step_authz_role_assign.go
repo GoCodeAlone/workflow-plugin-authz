@@ -77,6 +77,7 @@ func (s *authzRoleAssignStep) Execute(
 	stepOutputs map[string]map[string]any,
 	current map[string]any,
 	_ map[string]any,
+	_ map[string]any,
 ) (*sdk.StepResult, error) {
 	tmplData := buildTemplateData(triggerData, stepOutputs, current)
 

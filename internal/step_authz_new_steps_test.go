@@ -22,7 +22,7 @@ func TestAuthzAddPolicyStep_AddsRule(t *testing.T) {
 	}
 	s.registry = reg
 
-	result, err := s.Execute(context.Background(), nil, nil, nil, nil)
+	result, err := s.Execute(context.Background(), nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
@@ -57,7 +57,7 @@ func TestAuthzAddPolicyStep_TemplateRule(t *testing.T) {
 
 	result, err := s.Execute(context.Background(),
 		map[string]any{"role": "viewer", "resource": "/news", "method": "GET"},
-		nil, nil, nil,
+		nil, nil, nil, nil,
 	)
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -90,7 +90,7 @@ func TestAuthzAddPolicyStep_ModuleNotFound(t *testing.T) {
 	}
 	s.registry = reg
 
-	_, err = s.Execute(context.Background(), nil, nil, nil, nil)
+	_, err = s.Execute(context.Background(), nil, nil, nil, nil, nil)
 	if err == nil {
 		t.Error("expected error when module not found")
 	}
@@ -125,7 +125,7 @@ func TestAuthzRemovePolicyStep_RemovesRule(t *testing.T) {
 	}
 	s.registry = reg
 
-	result, err := s.Execute(context.Background(), nil, nil, nil, nil)
+	result, err := s.Execute(context.Background(), nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
@@ -160,7 +160,7 @@ func TestAuthzRemovePolicyStep_TemplateRule(t *testing.T) {
 
 	_, err = s.Execute(context.Background(),
 		map[string]any{"role": "viewer", "resource": "/news", "method": "GET"},
-		nil, nil, nil,
+		nil, nil, nil, nil,
 	)
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -189,7 +189,7 @@ func TestAuthzRemovePolicyStep_ModuleNotFound(t *testing.T) {
 	}
 	s.registry = reg
 
-	_, err = s.Execute(context.Background(), nil, nil, nil, nil)
+	_, err = s.Execute(context.Background(), nil, nil, nil, nil, nil)
 	if err == nil {
 		t.Error("expected error when module not found")
 	}
@@ -213,7 +213,7 @@ func TestAuthzRoleAssignStep_Add(t *testing.T) {
 	}
 	s.registry = reg
 
-	result, err := s.Execute(context.Background(), nil, nil, nil, nil)
+	result, err := s.Execute(context.Background(), nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Execute add: %v", err)
 	}
@@ -252,7 +252,7 @@ func TestAuthzRoleAssignStep_Remove(t *testing.T) {
 	}
 	s.registry = reg
 
-	_, err = s.Execute(context.Background(), nil, nil, nil, nil)
+	_, err = s.Execute(context.Background(), nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Execute remove: %v", err)
 	}
@@ -284,7 +284,7 @@ func TestAuthzRoleAssignStep_TemplateAssignment(t *testing.T) {
 
 	_, err = s.Execute(context.Background(),
 		map[string]any{"user": "eve"},
-		nil, nil, nil,
+		nil, nil, nil, nil,
 	)
 	if err != nil {
 		t.Fatalf("Execute template assign: %v", err)
@@ -339,7 +339,7 @@ func TestAuthzRoleAssignStep_ModuleNotFound(t *testing.T) {
 	}
 	s.registry = reg
 
-	_, err = s.Execute(context.Background(), nil, nil, nil, nil)
+	_, err = s.Execute(context.Background(), nil, nil, nil, nil, nil)
 	if err == nil {
 		t.Error("expected error when module not found")
 	}
@@ -367,7 +367,7 @@ func TestAuthzRoleAssignStep_MultipleAssignments(t *testing.T) {
 	}
 	s.registry = reg
 
-	_, err = s.Execute(context.Background(), nil, nil, nil, nil)
+	_, err = s.Execute(context.Background(), nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
 	}
