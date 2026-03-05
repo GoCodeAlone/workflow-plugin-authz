@@ -3,6 +3,7 @@ module github.com/GoCodeAlone/workflow-plugin-authz
 go 1.26
 
 require (
+	github.com/CrisisTextLine/modular v1.11.11
 	github.com/GoCodeAlone/workflow v0.3.11
 	github.com/casbin/casbin/v2 v2.135.0
 	gorm.io/driver/mysql v1.5.7
@@ -22,7 +23,6 @@ require (
 	cloud.google.com/go/storage v1.60.0 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/BurntSushi/toml v1.6.0 // indirect
-	github.com/CrisisTextLine/modular v1.11.11 // indirect
 	github.com/CrisisTextLine/modular/modules/auth v0.4.0 // indirect
 	github.com/CrisisTextLine/modular/modules/eventbus/v2 v2.1.0 // indirect
 	github.com/DataDog/datadog-go/v5 v5.4.0 // indirect
