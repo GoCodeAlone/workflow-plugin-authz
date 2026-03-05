@@ -4,7 +4,7 @@ go 1.26
 
 require (
 	github.com/CrisisTextLine/modular v1.11.11
-	github.com/GoCodeAlone/workflow v0.3.11
+	github.com/GoCodeAlone/workflow v0.3.13
 	github.com/casbin/casbin/v2 v2.135.0
 	gorm.io/driver/mysql v1.5.7
 	gorm.io/driver/postgres v1.5.11
