@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/GoCodeAlone/modular v1.12.0
-	github.com/GoCodeAlone/workflow v0.3.29
+	github.com/GoCodeAlone/workflow v0.3.30
 	github.com/casbin/casbin/v2 v2.135.0
 	gorm.io/driver/mysql v1.5.7
 	gorm.io/driver/postgres v1.5.11
@@ -25,7 +25,7 @@ require (
 	github.com/DataDog/datadog-go/v5 v5.4.0 // indirect
 	github.com/GoCodeAlone/go-plugin v0.0.0-20260220090904-b4c35f0e4271 // indirect
 	github.com/GoCodeAlone/modular/modules/auth v1.12.0 // indirect
-	github.com/GoCodeAlone/modular/modules/eventbus/v2 v2.5.0 // indirect
+	github.com/GoCodeAlone/modular/modules/eventbus/v2 v2.5.1 // indirect
 	github.com/GoCodeAlone/yaegi v0.17.1 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.30.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.55.0 // indirect
