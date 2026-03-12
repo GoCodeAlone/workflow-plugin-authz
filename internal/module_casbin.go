@@ -306,16 +306,26 @@ func (m *CasbinModule) Stop(_ context.Context) error {
 	return nil
 }
 
-// Enforce checks whether sub can perform act on obj.
+// Enforce checks whether sub can perform act on obj with optional extra request
+// dimensions. Extra fields are inserted between sub and (obj, act), so the
+// Casbin request tuple becomes (sub, extra[0], extra[1], …, obj, act).
+// This allows multi-tenant models such as r = sub, tenant, obj, act.
 // It is safe for concurrent use.
-func (m *CasbinModule) Enforce(sub, obj, act string) (bool, error) {
+func (m *CasbinModule) Enforce(sub, obj, act string, extra ...string) (bool, error) {
 	m.mu.RLock()
 	e := m.enforcer
 	m.mu.RUnlock()
 	if e == nil {
 		return false, fmt.Errorf("authz.casbin %q: enforcer not initialized", m.name)
 	}
-	return e.Enforce(sub, obj, act)
+	args := make([]any, 1+len(extra)+2)
+	args[0] = sub
+	for i, v := range extra {
+		args[1+i] = v
+	}
+	args[1+len(extra)] = obj
+	args[1+len(extra)+1] = act
+	return e.Enforce(args...)
 }
 
 // AddPolicy adds a policy rule and saves it to the adapter.

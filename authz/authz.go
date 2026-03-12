@@ -81,11 +81,11 @@ func (m *casbinModuleWrapper) Stop(ctx context.Context) error {
 }
 
 // Enforce delegates to the inner CasbinModule.
-func (m *casbinModuleWrapper) Enforce(sub, obj, act string) (bool, error) {
+func (m *casbinModuleWrapper) Enforce(sub, obj, act string, extra ...string) (bool, error) {
 	if m.inner == nil {
 		return false, fmt.Errorf("authz.casbin %q: not initialized", m.name)
 	}
-	return m.inner.Enforce(sub, obj, act)
+	return m.inner.Enforce(sub, obj, act, extra...)
 }
 
 // AddPolicy delegates to the inner CasbinModule.
