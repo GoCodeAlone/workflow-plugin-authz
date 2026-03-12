@@ -242,6 +242,38 @@ func TestGORMAdapter_FilterField_InvalidField(t *testing.T) {
 	}
 }
 
+// TestGORMAdapter_FilterField_PartialConfig checks that specifying only one of
+// filter_field / filter_value is rejected; both must be set or neither.
+func TestGORMAdapter_FilterField_PartialConfig(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		field  string
+		value  string
+	}{
+		{"field only", "v0", ""},
+		{"value only", "", "tenant_a"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m, err := newCasbinModule("authz", map[string]any{
+				"model": testModel,
+				"adapter": map[string]any{
+					"type":         "gorm",
+					"driver":       "sqlite3",
+					"dsn":          ":memory:",
+					"filter_field": tc.field,
+					"filter_value": tc.value,
+				},
+			})
+			if err != nil {
+				t.Fatalf("newCasbinModule: %v", err)
+			}
+			if err := m.Init(); err == nil {
+				t.Error("expected Init to fail for partial filter config")
+			}
+		})
+	}
+}
+
 // TestGORMAdapter_InvalidTableName checks that a table name with characters
 // unsafe for use as a raw SQL identifier is rejected at Init time.
 func TestGORMAdapter_InvalidTableName(t *testing.T) {
@@ -436,7 +468,37 @@ func TestGORMAdapter_TenantFilter_MutationIsolation(t *testing.T) {
 	}
 }
 
-// --- Option B: per-tenant table GORM tests ---
+// TestGORMAdapter_TenantFilter_CrossTenantWriteRejected verifies that AddPolicy
+// and RemovePolicy reject rules whose tenant field does not match the adapter's
+// filter value, preventing accidental cross-tenant writes.
+func TestGORMAdapter_TenantFilter_CrossTenantWriteRejected(t *testing.T) {
+	m, err := newCasbinModule("authz_a", map[string]any{
+		"model": testModel,
+		"adapter": map[string]any{
+			"type":         "gorm",
+			"driver":       "sqlite3",
+			"dsn":          ":memory:",
+			"filter_field": "v0",
+			"filter_value": "tenant_a",
+		},
+	})
+	if err != nil {
+		t.Fatalf("newCasbinModule: %v", err)
+	}
+	if err := m.Init(); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+
+	// Attempting to add a rule for a different tenant must be rejected.
+	if _, err := m.AddPolicy([]string{"tenant_b", "/api", "GET"}); err == nil {
+		t.Error("expected AddPolicy to fail for cross-tenant rule (tenant_b via tenant_a adapter)")
+	}
+
+	// Attempting to remove a rule for a different tenant must also be rejected.
+	if _, err := m.RemovePolicy([]string{"tenant_b", "/api", "GET"}); err == nil {
+		t.Error("expected RemovePolicy to fail for cross-tenant rule")
+	}
+}
 
 // TestGORMAdapter_PerTenantTable verifies that two modules configured with
 // different table names have completely independent policy stores.

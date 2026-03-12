@@ -17,7 +17,24 @@ import (
 	"github.com/casbin/casbin/v2/model"
 	"github.com/casbin/casbin/v2/persist"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
+
+// identWriter wraps strings.Builder to satisfy clause.Writer (which requires
+// both WriteString and WriteByte).  It is used to invoke dialector.QuoteTo so
+// that identifier quoting is database-specific (backticks for MySQL/SQLite,
+// double-quotes for PostgreSQL).
+type identWriter struct{ strings.Builder }
+
+func (w *identWriter) WriteByte(b byte) error { return w.Builder.WriteByte(b) }
+
+// quoteIdent returns name quoted as an identifier using the dialector's own
+// quoting rules, making SQL safe to use on MySQL, PostgreSQL and SQLite.
+func quoteIdent(db *gorm.DB, name string) string {
+	var w identWriter
+	db.Dialector.QuoteTo(&w, name)
+	return w.String()
+}
 
 // validFilterFields is the set of column names allowed in a filter to prevent
 // SQL injection when building dynamic WHERE clauses.
@@ -109,6 +126,11 @@ func newGORMAdapter(db *gorm.DB, tableName, filterField, filterValue string) (*g
 	if filterField != "" && !validFilterFields[filterField] {
 		return nil, fmt.Errorf("gorm casbin adapter: invalid filter_field %q (must be v0-v5)", filterField)
 	}
+	// filterField and filterValue must be set together; partial configuration is
+	// ambiguous and would silently skip filtering while looking like it is enabled.
+	if (filterField == "") != (filterValue == "") {
+		return nil, fmt.Errorf("gorm casbin adapter: filter_field and filter_value must both be set or both be empty")
+	}
 	if err := migrateTable(db, tableName); err != nil {
 		return nil, fmt.Errorf("gorm casbin adapter: migrate: %w", err)
 	}
@@ -127,12 +149,15 @@ func newGORMAdapter(db *gorm.DB, tableName, filterField, filterValue string) (*g
 // This avoids SQLite's flat index namespace where two tables migrated from the
 // same struct with the same named index tag would conflict.
 //
-// AutoMigrate is only invoked when the table does not yet exist.  Skipping it
-// for existing tables avoids SQLite-specific issues in the generic GORM migrator
-// (e.g. HasColumn falling back to an information_schema query that does not
-// exist in SQLite, which can cause unintended ALTER TABLE attempts).
+// On SQLite, AutoMigrate is skipped when the table already exists because the
+// generic GORM migrator's HasColumn falls back to information_schema (which does
+// not exist in SQLite), causing unintended ALTER TABLE attempts.  On PostgreSQL
+// and MySQL, AutoMigrate always runs so that schema drift is corrected.
 func migrateTable(db *gorm.DB, tableName string) error {
-	if !db.Migrator().HasTable(tableName) {
+	isSQLite := db.Dialector.Name() == "sqlite"
+	tableExists := db.Migrator().HasTable(tableName)
+
+	if !isSQLite || !tableExists {
 		if err := db.Table(tableName).AutoMigrate(&casbinRule{}); err != nil {
 			return err
 		}
@@ -144,9 +169,18 @@ func migrateTable(db *gorm.DB, tableName string) error {
 	if db.Migrator().HasIndex(tableName, idxName) {
 		return nil
 	}
+	// Use the dialector's identifier quoting so the SQL is correct for every
+	// supported database: backticks on MySQL/SQLite, double-quotes on PostgreSQL.
+	cols := []string{"ptype", "v0", "v1", "v2", "v3", "v4", "v5"}
+	quotedCols := make([]string, len(cols))
+	for i, c := range cols {
+		quotedCols[i] = quoteIdent(db, c)
+	}
 	return db.Exec(fmt.Sprintf(
-		`CREATE UNIQUE INDEX %q ON %q ("ptype","v0","v1","v2","v3","v4","v5")`,
-		idxName, tableName,
+		"CREATE UNIQUE INDEX %s ON %s (%s)",
+		quoteIdent(db, idxName),
+		quoteIdent(db, tableName),
+		strings.Join(quotedCols, ", "),
 	)).Error
 }
 
@@ -172,7 +206,9 @@ func (a *gormAdapter) LoadPolicy(mdl model.Model) error {
 }
 
 // LoadFilteredPolicy loads only policies matching the supplied filter.
-// filter must be a GORMFilter value.  Sets IsFiltered to true on success.
+// filter must be a GORMFilter value.  On success the active filter is stored on
+// the adapter so that subsequent SavePolicy calls are correctly scoped, and
+// IsFiltered is set to true.
 func (a *gormAdapter) LoadFilteredPolicy(mdl model.Model, filter interface{}) error {
 	f, ok := filter.(GORMFilter)
 	if !ok {
@@ -184,20 +220,29 @@ func (a *gormAdapter) LoadFilteredPolicy(mdl model.Model, filter interface{}) er
 	if err := a.loadWithFilter(mdl, f.Field, f.Value); err != nil {
 		return err
 	}
-	a.filtered = true
+	// Persist the active filter so that subsequent SavePolicy calls can correctly
+	// scope their operations.  When no effective filter was provided, clear any
+	// previously stored filter to avoid inconsistent SavePolicy behavior.
+	if f.Field != "" && f.Value != "" {
+		a.filterField = f.Field
+		a.filterValue = f.Value
+		a.filtered = true
+	} else {
+		a.filterField = ""
+		a.filterValue = ""
+		a.filtered = false
+	}
 	return nil
 }
 
 // loadWithFilter is the shared implementation used by LoadPolicy and
 // LoadFilteredPolicy.  field must be a pre-validated column name (v0-v5) or
-// empty; the backtick quoting is an additional defence-in-depth measure.
+// empty.  clause.Eq is used for the WHERE clause so that identifier quoting is
+// handled by GORM's dialector, making it correct on MySQL, PostgreSQL and SQLite.
 func (a *gormAdapter) loadWithFilter(mdl model.Model, field, value string) error {
 	q := a.table()
 	if field != "" && value != "" {
-		// field is already validated against validFilterFields (v0-v5), so
-		// backtick-quoting is safe and provides defence-in-depth against any
-		// future code path that might supply an unvalidated column name.
-		q = q.Where("`"+field+"` = ?", value)
+		q = q.Where(clause.Eq{Column: clause.Column{Name: field}, Value: value})
 	}
 	var rules []casbinRule
 	if err := q.Find(&rules).Error; err != nil {
@@ -227,7 +272,7 @@ func (a *gormAdapter) SavePolicy(mdl model.Model) error {
 
 	if a.IsFiltered() {
 		// Delete only rows belonging to this tenant, then re-insert.
-		if err := a.table().Where(a.filterField+" = ?", a.filterValue).Delete(&casbinRule{}).Error; err != nil {
+		if err := a.table().Where(clause.Eq{Column: clause.Column{Name: a.filterField}, Value: a.filterValue}).Delete(&casbinRule{}).Error; err != nil {
 			return err
 		}
 	} else {
@@ -243,14 +288,43 @@ func (a *gormAdapter) SavePolicy(mdl model.Model) error {
 	return nil
 }
 
+// checkTenantScope returns an error when the adapter is in filtered mode and
+// the rule's field at the filter index does not match filterValue.  This
+// prevents accidental cross-tenant writes via AddPolicy / RemovePolicy.
+func (a *gormAdapter) checkTenantScope(rule []string) error {
+	if a.filterField == "" {
+		return nil
+	}
+	// filterField is validated to be "v0"–"v5"; extract the numeric index.
+	fieldIdx := int(a.filterField[1] - '0')
+	if fieldIdx >= len(rule) {
+		return fmt.Errorf("gorm casbin adapter: rule has %d field(s), filter requires %s", len(rule), a.filterField)
+	}
+	if rule[fieldIdx] != a.filterValue {
+		return fmt.Errorf("gorm casbin adapter: rule %s=%q does not match tenant filter %s=%q; cross-tenant writes are not allowed",
+			a.filterField, rule[fieldIdx], a.filterField, a.filterValue)
+	}
+	return nil
+}
+
 // AddPolicy adds a policy rule to the database.
+// When a tenant filter is active the rule is validated to ensure it belongs to
+// the configured tenant before being written.
 func (a *gormAdapter) AddPolicy(sec, ptype string, rule []string) error {
+	if err := a.checkTenantScope(rule); err != nil {
+		return err
+	}
 	r := lineToRule(ptype, rule)
 	return a.table().Create(&r).Error
 }
 
 // RemovePolicy removes a policy rule from the database.
+// When a tenant filter is active the rule is validated to ensure it belongs to
+// the configured tenant before deletion is attempted.
 func (a *gormAdapter) RemovePolicy(sec, ptype string, rule []string) error {
+	if err := a.checkTenantScope(rule); err != nil {
+		return err
+	}
 	r := lineToRule(ptype, rule)
 	return a.table().Where(&r).Delete(&casbinRule{}).Error
 }

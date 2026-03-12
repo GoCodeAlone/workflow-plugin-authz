@@ -73,8 +73,8 @@ func (d *sqliteDialector) Migrator(db *gorm.DB) gorm.Migrator {
 }
 
 // sqliteMigrator extends the generic GORM migrator with SQLite-specific
-// implementations for HasTable and HasIndex.  The generic migrator queries
-// information_schema which does not exist in SQLite.
+// implementations for HasTable, HasIndex, and HasColumn.  The generic migrator
+// queries information_schema which does not exist in SQLite.
 type sqliteMigrator struct {
 	migrator.Migrator
 }
