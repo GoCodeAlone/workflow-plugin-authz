@@ -219,7 +219,330 @@ func TestGORMAdapter_MissingDSN(t *testing.T) {
 	}
 }
 
-// --- inMemoryAdapter mutation tests ---
+// --- Option A: tenant-filter GORM tests ---
+
+// TestGORMAdapter_FilterField_InvalidField checks that an invalid filter_field
+// is rejected at adapter creation time.
+func TestGORMAdapter_FilterField_InvalidField(t *testing.T) {
+	m, err := newCasbinModule("authz", map[string]any{
+		"model": testModel,
+		"adapter": map[string]any{
+			"type":         "gorm",
+			"driver":       "sqlite3",
+			"dsn":          ":memory:",
+			"filter_field": "not_a_column", // invalid
+			"filter_value": "tenant_a",
+		},
+	})
+	if err != nil {
+		t.Fatalf("newCasbinModule: %v", err)
+	}
+	if err := m.Init(); err == nil {
+		t.Error("expected Init to fail for invalid filter_field")
+	}
+}
+
+// TestGORMAdapter_InvalidTableName checks that a table name with characters
+// unsafe for use as a raw SQL identifier is rejected at Init time.
+func TestGORMAdapter_InvalidTableName(t *testing.T) {
+	m, err := newCasbinModule("authz", map[string]any{
+		"model": testModel,
+		"adapter": map[string]any{
+			"type":       "gorm",
+			"driver":     "sqlite3",
+			"dsn":        ":memory:",
+			"table_name": `casbin_rule"; DROP TABLE casbin_rule; --`, // injection attempt
+		},
+	})
+	if err != nil {
+		t.Fatalf("newCasbinModule: %v", err)
+	}
+	if err := m.Init(); err == nil {
+		t.Error("expected Init to fail for unsafe table name")
+	}
+}
+
+// TestGORMAdapter_TenantFilter demonstrates Option A: two modules share the
+// same SQLite file-based database but each only loads/manages its own rows,
+// identified by the value stored in v0 (the "tenant" column).
+func TestGORMAdapter_TenantFilter(t *testing.T) {
+	dir := t.TempDir()
+	dsn := "file:" + dir + "/authz.db"
+
+	// Build a shared multi-tenant model where v0 holds the tenant.
+	// Policy line:  p, <tenant>, <role>, <obj>, <act>
+	// Matcher:      g(r.sub, p.sub, p.v0) && p.v0 == r.dom && r.obj == p.obj ...
+	// For simplicity we reuse testModel (sub, obj, act) and put tenant in v0.
+	// We seed the DB directly via a plain (no-filter) adapter first.
+
+	// --- seed phase: populate both tenants' rows ---
+	seed, err := newCasbinModule("seed", map[string]any{
+		"model": testModel,
+		"adapter": map[string]any{
+			"type":   "gorm",
+			"driver": "sqlite3",
+			"dsn":    dsn,
+		},
+	})
+	if err != nil {
+		t.Fatalf("seed newCasbinModule: %v", err)
+	}
+	if err := seed.Init(); err != nil {
+		t.Fatalf("seed Init: %v", err)
+	}
+	// tenant_a policy: alice → admin → GET /api
+	if _, err := seed.AddPolicy([]string{"tenant_a", "/api", "GET"}); err != nil {
+		t.Fatalf("seed AddPolicy tenant_a: %v", err)
+	}
+	// tenant_b policy: bob → admin → POST /data
+	if _, err := seed.AddPolicy([]string{"tenant_b", "/data", "POST"}); err != nil {
+		t.Fatalf("seed AddPolicy tenant_b: %v", err)
+	}
+
+	// --- tenant_a module: filter on v0 = "tenant_a" ---
+	modA, err := newCasbinModule("authz_a", map[string]any{
+		"model": testModel,
+		"adapter": map[string]any{
+			"type":         "gorm",
+			"driver":       "sqlite3",
+			"dsn":          dsn,
+			"filter_field": "v0",
+			"filter_value": "tenant_a",
+		},
+	})
+	if err != nil {
+		t.Fatalf("modA newCasbinModule: %v", err)
+	}
+	if err := modA.Init(); err != nil {
+		t.Fatalf("modA Init: %v", err)
+	}
+
+	// tenant_a can access /api GET
+	if ok, err := modA.Enforce("tenant_a", "/api", "GET"); err != nil || !ok {
+		t.Errorf("tenant_a should be allowed GET /api: ok=%v err=%v", ok, err)
+	}
+	// tenant_b's policy is NOT loaded into modA
+	if ok, err := modA.Enforce("tenant_b", "/data", "POST"); err != nil || ok {
+		t.Errorf("tenant_b policy must not be visible in tenant_a module: ok=%v err=%v", ok, err)
+	}
+
+	// --- tenant_b module: filter on v0 = "tenant_b" ---
+	modB, err := newCasbinModule("authz_b", map[string]any{
+		"model": testModel,
+		"adapter": map[string]any{
+			"type":         "gorm",
+			"driver":       "sqlite3",
+			"dsn":          dsn,
+			"filter_field": "v0",
+			"filter_value": "tenant_b",
+		},
+	})
+	if err != nil {
+		t.Fatalf("modB newCasbinModule: %v", err)
+	}
+	if err := modB.Init(); err != nil {
+		t.Fatalf("modB Init: %v", err)
+	}
+
+	// tenant_b can access /data POST
+	if ok, err := modB.Enforce("tenant_b", "/data", "POST"); err != nil || !ok {
+		t.Errorf("tenant_b should be allowed POST /data: ok=%v err=%v", ok, err)
+	}
+	// tenant_a's policy is NOT loaded into modB
+	if ok, err := modB.Enforce("tenant_a", "/api", "GET"); err != nil || ok {
+		t.Errorf("tenant_a policy must not be visible in tenant_b module: ok=%v err=%v", ok, err)
+	}
+}
+
+// TestGORMAdapter_TenantFilter_MutationIsolation verifies that AddPolicy and
+// RemovePolicy on a filtered module only affect that tenant's rows and do not
+// corrupt other tenants' data.
+func TestGORMAdapter_TenantFilter_MutationIsolation(t *testing.T) {
+	dir := t.TempDir()
+	dsn := "file:" + dir + "/authz.db"
+
+	// Seed shared DB.
+	seed, err := newCasbinModule("seed", map[string]any{
+		"model": testModel,
+		"adapter": map[string]any{
+			"type":   "gorm",
+			"driver": "sqlite3",
+			"dsn":    dsn,
+		},
+	})
+	if err != nil {
+		t.Fatalf("seed newCasbinModule: %v", err)
+	}
+	if err := seed.Init(); err != nil {
+		t.Fatalf("seed Init: %v", err)
+	}
+	if _, err := seed.AddPolicy([]string{"tenant_b", "/reports", "GET"}); err != nil {
+		t.Fatalf("seed AddPolicy: %v", err)
+	}
+
+	// Filtered module for tenant_a.
+	modA, err := newCasbinModule("authz_a", map[string]any{
+		"model": testModel,
+		"adapter": map[string]any{
+			"type":         "gorm",
+			"driver":       "sqlite3",
+			"dsn":          dsn,
+			"filter_field": "v0",
+			"filter_value": "tenant_a",
+		},
+	})
+	if err != nil {
+		t.Fatalf("modA newCasbinModule: %v", err)
+	}
+	if err := modA.Init(); err != nil {
+		t.Fatalf("modA Init: %v", err)
+	}
+
+	// Add a policy for tenant_a.
+	if _, err := modA.AddPolicy([]string{"tenant_a", "/metrics", "GET"}); err != nil {
+		t.Fatalf("modA AddPolicy: %v", err)
+	}
+	if ok, err := modA.Enforce("tenant_a", "/metrics", "GET"); err != nil || !ok {
+		t.Errorf("tenant_a should be allowed GET /metrics: ok=%v err=%v", ok, err)
+	}
+
+	// Remove tenant_a's policy.
+	if _, err := modA.RemovePolicy([]string{"tenant_a", "/metrics", "GET"}); err != nil {
+		t.Fatalf("modA RemovePolicy: %v", err)
+	}
+	if ok, err := modA.Enforce("tenant_a", "/metrics", "GET"); err != nil || ok {
+		t.Errorf("tenant_a /metrics should be denied after removal: ok=%v err=%v", ok, err)
+	}
+
+	// Verify tenant_b's row is still intact in the shared DB.
+	modB, err := newCasbinModule("authz_b", map[string]any{
+		"model": testModel,
+		"adapter": map[string]any{
+			"type":         "gorm",
+			"driver":       "sqlite3",
+			"dsn":          dsn,
+			"filter_field": "v0",
+			"filter_value": "tenant_b",
+		},
+	})
+	if err != nil {
+		t.Fatalf("modB newCasbinModule: %v", err)
+	}
+	if err := modB.Init(); err != nil {
+		t.Fatalf("modB Init: %v", err)
+	}
+	if ok, err := modB.Enforce("tenant_b", "/reports", "GET"); err != nil || !ok {
+		t.Errorf("tenant_b /reports should still be allowed: ok=%v err=%v", ok, err)
+	}
+}
+
+// --- Option B: per-tenant table GORM tests ---
+
+// TestGORMAdapter_PerTenantTable verifies that two modules configured with
+// different table names have completely independent policy stores.
+func TestGORMAdapter_PerTenantTable(t *testing.T) {
+	dir := t.TempDir()
+	dsn := "file:" + dir + "/authz.db"
+
+	makeModule := func(name, table string) *CasbinModule {
+		t.Helper()
+		m, err := newCasbinModule(name, map[string]any{
+			"model": testModel,
+			"adapter": map[string]any{
+				"type":       "gorm",
+				"driver":     "sqlite3",
+				"dsn":        dsn,
+				"table_name": table,
+			},
+		})
+		if err != nil {
+			t.Fatalf("newCasbinModule %s: %v", name, err)
+		}
+		if err := m.Init(); err != nil {
+			t.Fatalf("Init %s: %v", name, err)
+		}
+		return m
+	}
+
+	modA := makeModule("authz_a", "casbin_rule_tenant_a")
+	modB := makeModule("authz_b", "casbin_rule_tenant_b")
+
+	// Add distinct policies to each table.
+	if _, err := modA.AddPolicy([]string{"alice", "/a", "GET"}); err != nil {
+		t.Fatalf("modA AddPolicy: %v", err)
+	}
+	if _, err := modB.AddPolicy([]string{"bob", "/b", "POST"}); err != nil {
+		t.Fatalf("modB AddPolicy: %v", err)
+	}
+
+	// Each module only sees its own policies.
+	if ok, err := modA.Enforce("alice", "/a", "GET"); err != nil || !ok {
+		t.Errorf("alice should be allowed GET /a in tenant_a: ok=%v err=%v", ok, err)
+	}
+	if ok, err := modA.Enforce("bob", "/b", "POST"); err != nil || ok {
+		t.Errorf("bob's policy must not exist in tenant_a table: ok=%v err=%v", ok, err)
+	}
+	if ok, err := modB.Enforce("bob", "/b", "POST"); err != nil || !ok {
+		t.Errorf("bob should be allowed POST /b in tenant_b: ok=%v err=%v", ok, err)
+	}
+	if ok, err := modB.Enforce("alice", "/a", "GET"); err != nil || ok {
+		t.Errorf("alice's policy must not exist in tenant_b table: ok=%v err=%v", ok, err)
+	}
+}
+
+// TestGORMAdapter_TableNameTemplate verifies that a Go template in table_name
+// is resolved using the Tenant config field (Option B).
+func TestGORMAdapter_TableNameTemplate(t *testing.T) {
+	dir := t.TempDir()
+	dsn := "file:" + dir + "/authz.db"
+
+	m, err := newCasbinModule("authz", map[string]any{
+		"model": testModel,
+		"adapter": map[string]any{
+			"type":       "gorm",
+			"driver":     "sqlite3",
+			"dsn":        dsn,
+			"table_name": "casbin_rule_{{.Tenant}}",
+			"tenant":     "acme_corp",
+		},
+	})
+	if err != nil {
+		t.Fatalf("newCasbinModule: %v", err)
+	}
+	if err := m.Init(); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+
+	// Add and enforce a policy – proves the table was created and is usable.
+	if _, err := m.AddPolicy([]string{"alice", "/dashboard", "GET"}); err != nil {
+		t.Fatalf("AddPolicy: %v", err)
+	}
+	if ok, err := m.Enforce("alice", "/dashboard", "GET"); err != nil || !ok {
+		t.Errorf("alice should be allowed GET /dashboard: ok=%v err=%v", ok, err)
+	}
+}
+
+// TestGORMAdapter_TableNameTemplate_Invalid checks that an invalid template
+// expression is rejected at Init time.
+func TestGORMAdapter_TableNameTemplate_Invalid(t *testing.T) {
+	m, err := newCasbinModule("authz", map[string]any{
+		"model": testModel,
+		"adapter": map[string]any{
+			"type":       "gorm",
+			"driver":     "sqlite3",
+			"dsn":        ":memory:",
+			"table_name": "casbin_rule_{{.Unclosed", // broken template
+		},
+	})
+	if err != nil {
+		t.Fatalf("newCasbinModule: %v", err)
+	}
+	if err := m.Init(); err == nil {
+		t.Error("expected Init to fail for invalid table_name template")
+	}
+}
+
+
 
 func TestInMemoryAdapter_AddRemovePolicy(t *testing.T) {
 	m := buildModule(t,

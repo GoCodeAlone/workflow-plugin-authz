@@ -1,10 +1,12 @@
 package internal
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"strings"
 	"sync"
+	"text/template"
 	"time"
 
 	"github.com/casbin/casbin/v2"
@@ -42,7 +44,19 @@ type adapterConfig struct {
 	// GORM adapter fields.
 	Driver    string `yaml:"driver"` // "postgres", "mysql", or "sqlite3"
 	DSN       string `yaml:"dsn"`
-	TableName string `yaml:"table_name"` // optional; defaults to "casbin_rule"
+	TableName string `yaml:"table_name"` // optional; defaults to "casbin_rule"; supports Go templates
+
+	// Option B: Tenant identifier used as {{.Tenant}} in a table_name template.
+	// Example: table_name "casbin_rule_{{.Tenant}}" with Tenant "acme" resolves
+	// to table "casbin_rule_acme", giving each tenant its own policy table.
+	Tenant string `yaml:"tenant"`
+
+	// Option A: Tenant-scoped policy loading via a WHERE clause on LoadPolicy.
+	// FilterField is a column name (v0–v5) and FilterValue is the value that
+	// column must equal.  When both are set the adapter implements
+	// persist.FilteredAdapter and only loads/saves matching rows.
+	FilterField string `yaml:"filter_field"`
+	FilterValue string `yaml:"filter_value"`
 }
 
 // watcherConfig describes the optional polling reload behaviour.
@@ -136,6 +150,9 @@ func parseAdapterConfig(raw map[string]any) adapterConfig {
 	a.Driver, _ = raw["driver"].(string)
 	a.DSN, _ = raw["dsn"].(string)
 	a.TableName, _ = raw["table_name"].(string)
+	a.Tenant, _ = raw["tenant"].(string)
+	a.FilterField, _ = raw["filter_field"].(string)
+	a.FilterValue, _ = raw["filter_value"].(string)
 	return a
 }
 
@@ -217,11 +234,36 @@ func (m *CasbinModule) buildGORMAdapter() (persist.Adapter, error) {
 		return nil, fmt.Errorf("authz.casbin %q: open gorm db: %w", m.name, err)
 	}
 
-	a, err := newGORMAdapter(db, m.config.Adapter.TableName)
+	// Option B: resolve table_name template (e.g. "casbin_rule_{{.Tenant}}").
+	tableName, err := resolveTableNameTemplate(m.config.Adapter.TableName, m.config.Adapter)
+	if err != nil {
+		return nil, fmt.Errorf("authz.casbin %q: %w", m.name, err)
+	}
+
+	// Option A: pass filter fields for tenant-scoped policy loading.
+	a, err := newGORMAdapter(db, tableName, m.config.Adapter.FilterField, m.config.Adapter.FilterValue)
 	if err != nil {
 		return nil, fmt.Errorf("authz.casbin %q: create gorm adapter: %w", m.name, err)
 	}
 	return a, nil
+}
+
+// resolveTableNameTemplate resolves a Go template in tableName.
+// The template data is the adapterConfig, so {{.Tenant}} expands to cfg.Tenant.
+// If tableName contains no template markers it is returned unchanged.
+func resolveTableNameTemplate(tableName string, cfg adapterConfig) (string, error) {
+	if !strings.Contains(tableName, "{{") {
+		return tableName, nil
+	}
+	tmpl, err := template.New("table_name").Parse(tableName)
+	if err != nil {
+		return "", fmt.Errorf("parse table_name template: %w", err)
+	}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, cfg); err != nil {
+		return "", fmt.Errorf("execute table_name template: %w", err)
+	}
+	return buf.String(), nil
 }
 
 // Init builds the Casbin enforcer from the configured adapter.
@@ -319,6 +361,8 @@ func (m *CasbinModule) Enforce(sub, obj, act string) (bool, error) {
 }
 
 // AddPolicy adds a policy rule and saves it to the adapter.
+// When the enforcer uses a FilteredAdapter, SavePolicy is skipped because
+// the incremental adapter.AddPolicy already persisted the row.
 func (m *CasbinModule) AddPolicy(rule []string) (bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -329,7 +373,7 @@ func (m *CasbinModule) AddPolicy(rule []string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if ok {
+	if ok && !m.enforcer.IsFiltered() {
 		if err := m.enforcer.SavePolicy(); err != nil {
 			return false, err
 		}
@@ -338,6 +382,7 @@ func (m *CasbinModule) AddPolicy(rule []string) (bool, error) {
 }
 
 // RemovePolicy removes a policy rule and saves the adapter.
+// When the enforcer uses a FilteredAdapter, SavePolicy is skipped.
 func (m *CasbinModule) RemovePolicy(rule []string) (bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -348,7 +393,7 @@ func (m *CasbinModule) RemovePolicy(rule []string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if ok {
+	if ok && !m.enforcer.IsFiltered() {
 		if err := m.enforcer.SavePolicy(); err != nil {
 			return false, err
 		}
@@ -357,6 +402,7 @@ func (m *CasbinModule) RemovePolicy(rule []string) (bool, error) {
 }
 
 // AddGroupingPolicy adds a role mapping and saves the adapter.
+// When the enforcer uses a FilteredAdapter, SavePolicy is skipped.
 func (m *CasbinModule) AddGroupingPolicy(rule []string) (bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -367,7 +413,7 @@ func (m *CasbinModule) AddGroupingPolicy(rule []string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if ok {
+	if ok && !m.enforcer.IsFiltered() {
 		if err := m.enforcer.SavePolicy(); err != nil {
 			return false, err
 		}
@@ -376,6 +422,7 @@ func (m *CasbinModule) AddGroupingPolicy(rule []string) (bool, error) {
 }
 
 // RemoveGroupingPolicy removes a role mapping and saves the adapter.
+// When the enforcer uses a FilteredAdapter, SavePolicy is skipped.
 func (m *CasbinModule) RemoveGroupingPolicy(rule []string) (bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -386,7 +433,7 @@ func (m *CasbinModule) RemoveGroupingPolicy(rule []string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if ok {
+	if ok && !m.enforcer.IsFiltered() {
 		if err := m.enforcer.SavePolicy(); err != nil {
 			return false, err
 		}
