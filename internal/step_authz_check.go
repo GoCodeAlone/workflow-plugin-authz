@@ -27,12 +27,12 @@ import (
 //	  - key: tenant            #   field name (used as audit key)
 //	    value: "{{.steps.auth.affiliate_id}}"  # static value or Go template
 type authzCheckStep struct {
-	name       string
-	moduleName string
-	subjectKey string
-	object     string
-	action     string
-	audit      bool
+	name        string
+	moduleName  string
+	subjectKey  string
+	object      string
+	action      string
+	audit       bool
 	extraFields []extraField
 
 	// parsed templates (nil when static string is used)
@@ -138,7 +138,12 @@ func newAuthzCheckStep(name string, config map[string]any) (*authzCheckStep, err
 	}
 
 	// Parse optional extra_fields for multi-dimensional enforcement (e.g. tenant).
-	if rawFields, ok := config["extra_fields"].([]any); ok {
+	if raw, exists := config["extra_fields"]; exists {
+		rawFields, ok := raw.([]any)
+		if !ok {
+			return nil, fmt.Errorf("step.authz_check_casbin %q: extra_fields must be a list", name)
+		}
+		seen := make(map[string]bool, len(rawFields))
 		for i, rawItem := range rawFields {
 			item, ok := rawItem.(map[string]any)
 			if !ok {
@@ -152,6 +157,10 @@ func newAuthzCheckStep(name string, config map[string]any) (*authzCheckStep, err
 			if val == "" {
 				return nil, fmt.Errorf("step.authz_check_casbin %q: extra_fields[%d] missing required \"value\"", name, i)
 			}
+			if seen[key] {
+				return nil, fmt.Errorf("step.authz_check_casbin %q: extra_fields has duplicate key %q", name, key)
+			}
+			seen[key] = true
 			ef := extraField{key: key, value: val}
 			if isTemplate(val) {
 				ef.tmpl, err = template.New(fmt.Sprintf("extra_field_%d", i)).Parse(val)
@@ -235,8 +244,12 @@ func (s *authzCheckStep) Execute(
 				"timestamp": time.Now().UTC().Format(time.RFC3339),
 				"module":    s.moduleName,
 			}
-			for i, ef := range s.extraFields {
-				evt[ef.key] = extraVals[i]
+			if len(s.extraFields) > 0 {
+				extras := make(map[string]any, len(s.extraFields))
+				for i, ef := range s.extraFields {
+					extras[ef.key] = extraVals[i]
+				}
+				evt["extra_fields"] = extras
 			}
 			result.Output["audit_event"] = evt
 		}
@@ -259,8 +272,12 @@ func (s *authzCheckStep) Execute(
 			"timestamp": time.Now().UTC().Format(time.RFC3339),
 			"module":    s.moduleName,
 		}
-		for i, ef := range s.extraFields {
-			evt[ef.key] = extraVals[i]
+		if len(s.extraFields) > 0 {
+			extras := make(map[string]any, len(s.extraFields))
+			for i, ef := range s.extraFields {
+				extras[ef.key] = extraVals[i]
+			}
+			evt["extra_fields"] = extras
 		}
 		output["audit_event"] = evt
 	}
@@ -301,8 +318,15 @@ func resolveSubject(key string, stepOutputs map[string]map[string]any, current, 
 
 // buildTemplateData merges all context maps into a single flat map for template
 // execution. Later sources overwrite earlier ones: triggerData < stepOutputs < current.
-// Step outputs are also available under a nested "steps" key so templates can
-// reference individual steps with {{.steps.stepName.fieldKey}}.
+// Step outputs are also available under a nested "steps" key (set only when
+// triggerData does not already define one) so templates can reference individual
+// step outputs with {{.steps.stepName.fieldKey}}.
+//
+// Note: dot-notation ({{.steps.stepName.key}}) only works when the step name is
+// a valid Go identifier. For step names containing dashes or other special
+// characters use index notation instead:
+//
+//	{{ index .steps "step-name" "fieldKey" }}
 func buildTemplateData(triggerData map[string]any, stepOutputs map[string]map[string]any, current map[string]any) map[string]any {
 	data := make(map[string]any)
 	for k, v := range triggerData {
@@ -315,8 +339,12 @@ func buildTemplateData(triggerData map[string]any, stepOutputs map[string]map[st
 		}
 		steps[name] = out
 	}
+	// Only inject the "steps" key when the caller has not already supplied one
+	// in triggerData, to avoid silently overwriting an existing value.
 	if len(steps) > 0 {
-		data["steps"] = steps
+		if _, exists := data["steps"]; !exists {
+			data["steps"] = steps
+		}
 	}
 	for k, v := range current {
 		data[k] = v

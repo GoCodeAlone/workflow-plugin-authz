@@ -295,6 +295,31 @@ func TestAuthzCheckStep_MissingAction(t *testing.T) {
 	}
 }
 
+func TestAuthzCheckStep_ExtraFieldsNotAList(t *testing.T) {
+	_, err := newAuthzCheckStep("s", map[string]any{
+		"object":       "/api/foo",
+		"action":       "GET",
+		"extra_fields": "not-a-list",
+	})
+	if err == nil {
+		t.Error("expected error when extra_fields is not a list")
+	}
+}
+
+func TestAuthzCheckStep_ExtraFieldsDuplicateKey(t *testing.T) {
+	_, err := newAuthzCheckStep("s", map[string]any{
+		"object": "/api/foo",
+		"action": "GET",
+		"extra_fields": []any{
+			map[string]any{"key": "tenant", "value": "x"},
+			map[string]any{"key": "tenant", "value": "y"},
+		},
+	})
+	if err == nil {
+		t.Error("expected error for duplicate extra_fields key")
+	}
+}
+
 func TestAuthzCheckStep_ModuleNotFound(t *testing.T) {
 	reg := &testRegistry{} // no module registered
 
@@ -614,8 +639,19 @@ func TestAuthzCheckStep_ExtraFieldsAudit(t *testing.T) {
 	if !ok {
 		t.Fatal("expected audit_event in output when audit=true")
 	}
-	audit := auditRaw.(map[string]any)
-	if v, _ := audit["tenant"].(string); v != "tenant-a" {
-		t.Errorf("audit_event.tenant: want %q, got %q", "tenant-a", v)
+	audit, ok := auditRaw.(map[string]any)
+	if !ok {
+		t.Fatalf("expected audit_event to be map[string]any, got %T", auditRaw)
+	}
+	extrasRaw, ok := audit["extra_fields"]
+	if !ok {
+		t.Fatal("expected audit_event.extra_fields when extra_fields configured")
+	}
+	extras, ok := extrasRaw.(map[string]any)
+	if !ok {
+		t.Fatalf("expected audit_event.extra_fields to be map[string]any, got %T", extrasRaw)
+	}
+	if v, _ := extras["tenant"].(string); v != "tenant-a" {
+		t.Errorf("audit_event.extra_fields.tenant: want %q, got %q", "tenant-a", v)
 	}
 }
