@@ -65,11 +65,56 @@ func (d *sqliteDialector) DefaultValueOf(field *schema.Field) clause.Expression 
 }
 
 func (d *sqliteDialector) Migrator(db *gorm.DB) gorm.Migrator {
-	return migrator.Migrator{Config: migrator.Config{
+	return &sqliteMigrator{Migrator: migrator.Migrator{Config: migrator.Config{
 		DB:                          db,
 		Dialector:                   d,
 		CreateIndexAfterCreateTable: true,
-	}}
+	}}}
+}
+
+// sqliteMigrator extends the generic GORM migrator with SQLite-specific
+// implementations for HasTable, HasIndex, and HasColumn.  The generic migrator
+// queries information_schema which does not exist in SQLite.
+type sqliteMigrator struct {
+	migrator.Migrator
+}
+
+// HasTable reports whether the named table exists in the SQLite database.
+func (m sqliteMigrator) HasTable(value interface{}) bool {
+	var count int
+	_ = m.RunWithValue(value, func(stmt *gorm.Statement) error {
+		return m.DB.Raw(
+			"SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = ?",
+			stmt.Table,
+		).Row().Scan(&count)
+	})
+	return count > 0
+}
+
+// HasIndex reports whether an index with the given name exists in the
+// SQLite database (index names are global in SQLite).
+func (m sqliteMigrator) HasIndex(value interface{}, name string) bool {
+	var count int
+	_ = m.RunWithValue(value, func(stmt *gorm.Statement) error {
+		return m.DB.Raw(
+			"SELECT count(*) FROM sqlite_master WHERE type = 'index' AND name = ?",
+			name,
+		).Row().Scan(&count)
+	})
+	return count > 0
+}
+
+// HasColumn reports whether the given column exists in the table using SQLite's
+// PRAGMA table_info, which works correctly for all SQLite table names.
+func (m sqliteMigrator) HasColumn(value interface{}, name string) bool {
+	var count int
+	_ = m.RunWithValue(value, func(stmt *gorm.Statement) error {
+		return m.DB.Raw(
+			"SELECT count(*) FROM pragma_table_info(?) WHERE name = ?",
+			stmt.Table, name,
+		).Row().Scan(&count)
+	})
+	return count > 0
 }
 
 func (d *sqliteDialector) BindVarTo(writer clause.Writer, stmt *gorm.Statement, v interface{}) {
