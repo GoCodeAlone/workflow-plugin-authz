@@ -1,5 +1,9 @@
 version: 2
 
+before:
+  hooks:
+    - "sed -i.bak 's/\"version\": \".*\"/\"version\": \"{{ .Version }}\"/' plugin.json && rm -f plugin.json.bak"
+
 builds:
   - main: ./cmd/workflow-plugin-authz
     binary: workflow-plugin-authz
