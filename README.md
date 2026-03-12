@@ -84,7 +84,7 @@ On denial (HTTP 403):
 
 ## step.authz_add_policy pipeline step
 
-Adds a policy rule to the Casbin enforcer at runtime. Each element of `rule` may be a static string or a Go template rendered against the merged pipeline context (trigger data, prior step outputs, and current context).
+Adds a policy rule to the Casbin enforcer at runtime; when the rule actually changes the policy (that is, it is newly added), the step saves the updated policy via the module's configured Casbin adapter (file/GORM adapters persist to their backing store, while the in-memory adapter keeps changes for the lifetime of the process). Each element of `rule` may be a static string or a Go template rendered against the merged pipeline context (trigger data, prior step outputs, and current context).
 
 ```yaml
 steps:
@@ -156,7 +156,7 @@ Adds or removes role mappings (grouping policies) in the Casbin enforcer at runt
 |---|---|---|---|
 | `module` | string | `"authz"` | Name of the `authz.casbin` module |
 | `action` | string | `"add"` | `"add"` to assign a role, `"remove"` to revoke it |
-| `assignments` | list of `[user, role]` | — | One or more `[user, role]` pairs; each value may be a Go template |
+| `assignments` | list of grouping policy rows | — | One or more grouping policy rows, each with at least `[user, role]`; each value may be a Go template |
 
 **Assign roles (static):**
 
