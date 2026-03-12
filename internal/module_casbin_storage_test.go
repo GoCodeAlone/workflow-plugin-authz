@@ -246,9 +246,9 @@ func TestGORMAdapter_FilterField_InvalidField(t *testing.T) {
 // filter_field / filter_value is rejected; both must be set or neither.
 func TestGORMAdapter_FilterField_PartialConfig(t *testing.T) {
 	for _, tc := range []struct {
-		name   string
-		field  string
-		value  string
+		name  string
+		field string
+		value string
 	}{
 		{"field only", "v0", ""},
 		{"value only", "", "tenant_a"},
@@ -603,8 +603,6 @@ func TestGORMAdapter_TableNameTemplate_Invalid(t *testing.T) {
 		t.Error("expected Init to fail for invalid table_name template")
 	}
 }
-
-
 
 func TestInMemoryAdapter_AddRemovePolicy(t *testing.T) {
 	m := buildModule(t,
