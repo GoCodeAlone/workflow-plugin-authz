@@ -8,6 +8,9 @@ RBAC authorization plugin for the [workflow engine](https://github.com/GoCodeAlo
 |---|---|
 | Module | `authz.casbin` |
 | Step | `step.authz_check_casbin` |
+| Step | `step.authz_add_policy` |
+| Step | `step.authz_remove_policy` |
+| Step | `step.authz_role_assign` |
 
 ## authz.casbin module
 
@@ -76,6 +79,128 @@ On denial (HTTP 403):
   "response_body": "{\"error\":\"forbidden: bob is not permitted to POST /api/v1/tenants\"}",
   "response_headers": {"Content-Type": "application/json"},
   "authz_allowed": false
+}
+```
+
+## step.authz_add_policy pipeline step
+
+Adds a policy rule to the Casbin enforcer at runtime; when the rule actually changes the policy (that is, it is newly added), the step saves the updated policy via the module's configured Casbin adapter (file/GORM adapters persist to their backing store, while the in-memory adapter keeps changes for the lifetime of the process). Each element of `rule` may be a static string or a Go template rendered against the merged pipeline context (trigger data, prior step outputs, and current context).
+
+```yaml
+steps:
+  - type: step.authz_add_policy
+    config:
+      module: authz                        # authz.casbin module name (default: "authz")
+      rule: ["editor", "/api/posts", "POST"] # policy rule; each element may be a Go template
+```
+
+Template-based rule (values resolved from the pipeline context at runtime):
+
+```yaml
+steps:
+  - type: step.authz_add_policy
+    config:
+      module: authz
+      rule: ["{{.role}}", "{{.resource}}", "{{.method}}"]
+```
+
+On success the step outputs:
+
+```json
+{
+  "authz_policy_added": true,
+  "authz_rule": ["editor", "/api/posts", "POST"]
+}
+```
+
+`authz_policy_added` is `false` when the rule already existed in the enforcer.
+
+## step.authz_remove_policy pipeline step
+
+Removes a policy rule from the Casbin enforcer at runtime. Mirrors `step.authz_add_policy` in configuration; each element of `rule` may be a static string or a Go template.
+
+```yaml
+steps:
+  - type: step.authz_remove_policy
+    config:
+      module: authz                        # authz.casbin module name (default: "authz")
+      rule: ["editor", "/api/posts", "POST"] # policy rule to remove; elements may be Go templates
+```
+
+Template-based rule:
+
+```yaml
+steps:
+  - type: step.authz_remove_policy
+    config:
+      module: authz
+      rule: ["{{.role}}", "{{.resource}}", "{{.method}}"]
+```
+
+On success the step outputs:
+
+```json
+{
+  "authz_policy_removed": true,
+  "authz_rule": ["editor", "/api/posts", "POST"]
+}
+```
+
+`authz_policy_removed` is `false` when the rule did not exist in the enforcer.
+
+## step.authz_role_assign pipeline step
+
+Adds or removes role mappings (grouping policies) in the Casbin enforcer at runtime. Useful for provisioning authorization when new users or tenants are onboarded.
+
+| Config field | Type | Default | Description |
+|---|---|---|---|
+| `module` | string | `"authz"` | Name of the `authz.casbin` module |
+| `action` | string | `"add"` | `"add"` to assign a role, `"remove"` to revoke it |
+| `assignments` | list of grouping policy rows | — | One or more grouping policy rows, each with at least `[user, role]`; each value may be a Go template |
+
+**Assign roles (static):**
+
+```yaml
+steps:
+  - type: step.authz_role_assign
+    config:
+      module: authz
+      action: add                          # "add" (default) or "remove"
+      assignments:
+        - ["alice", "admin"]
+        - ["bob", "editor"]
+```
+
+**Assign a role using templates** (values resolved from the pipeline context at runtime):
+
+```yaml
+steps:
+  - type: step.authz_role_assign
+    config:
+      module: authz
+      action: add
+      assignments:
+        - ["{{.new_user_id}}", "{{.tenant_role}}"]
+```
+
+**Revoke a role:**
+
+```yaml
+steps:
+  - type: step.authz_role_assign
+    config:
+      module: authz
+      action: remove
+      assignments:
+        - ["bob", "editor"]
+```
+
+On success the step outputs:
+
+```json
+{
+  "authz_role_action": "add",
+  "authz_role_assignments": [["alice", "admin"], ["bob", "editor"]]
 }
 ```
 
