@@ -295,6 +295,31 @@ func TestAuthzCheckStep_MissingAction(t *testing.T) {
 	}
 }
 
+func TestAuthzCheckStep_ExtraFieldsNotAList(t *testing.T) {
+	_, err := newAuthzCheckStep("s", map[string]any{
+		"object":       "/api/foo",
+		"action":       "GET",
+		"extra_fields": "not-a-list",
+	})
+	if err == nil {
+		t.Error("expected error when extra_fields is not a list")
+	}
+}
+
+func TestAuthzCheckStep_ExtraFieldsDuplicateKey(t *testing.T) {
+	_, err := newAuthzCheckStep("s", map[string]any{
+		"object": "/api/foo",
+		"action": "GET",
+		"extra_fields": []any{
+			map[string]any{"key": "tenant", "value": "x"},
+			map[string]any{"key": "tenant", "value": "y"},
+		},
+	})
+	if err == nil {
+		t.Error("expected error for duplicate extra_fields key")
+	}
+}
+
 func TestAuthzCheckStep_ModuleNotFound(t *testing.T) {
 	reg := &testRegistry{} // no module registered
 
@@ -430,5 +455,203 @@ func TestAuthzCheckAuditOutput(t *testing.T) {
 	}
 	if _, present := resultDef.Output["audit_event"]; present {
 		t.Error("expected no audit_event in output when audit=false (default)")
+	}
+}
+
+// tenantTestModule builds a 4-tuple Casbin module (sub, tenant, obj, act)
+// suitable for testing extra_fields.
+func tenantTestModule(t *testing.T) *CasbinModule {
+	t.Helper()
+	cfg := map[string]any{
+		"model": `
+[request_definition]
+r = sub, tenant, obj, act
+
+[policy_definition]
+p = sub, tenant, obj, act
+
+[role_definition]
+g = _, _
+
+[policy_effect]
+e = some(where (p.eft == allow))
+
+[matchers]
+m = g(r.sub, p.sub) && r.tenant == p.tenant && r.obj == p.obj && (r.act == p.act || p.act == "*")
+`,
+		"policies": []any{
+			[]any{"admin", "tenant-a", "/api/posts", "*"},
+			[]any{"editor", "tenant-b", "/api/posts", "GET"},
+		},
+		"roleAssignments": []any{
+			[]any{"alice", "admin"},
+			[]any{"bob", "editor"},
+		},
+	}
+	m, err := newCasbinModule("authz-tenant", cfg)
+	if err != nil {
+		t.Fatalf("newCasbinModule: %v", err)
+	}
+	if err := m.Init(); err != nil {
+		t.Fatalf("CasbinModule.Init: %v", err)
+	}
+	return m
+}
+
+// TestAuthzCheckStep_ExtraFieldsStaticAllow verifies that a static extra_field
+// (tenant) is passed to Casbin and grants access when it matches the policy.
+func TestAuthzCheckStep_ExtraFieldsStaticAllow(t *testing.T) {
+	mod := tenantTestModule(t)
+	reg := &testRegistry{mod: mod}
+
+	s := newTestStep(t, map[string]any{
+		"module": "authz-tenant",
+		"object": "/api/posts",
+		"action": "DELETE",
+		"extra_fields": []any{
+			map[string]any{"key": "tenant", "value": "tenant-a"},
+		},
+	}, reg)
+
+	// alice is admin for tenant-a → allowed
+	allowed, stopped := execute(t, s,
+		nil,
+		map[string]any{"auth_user_id": "alice"},
+		nil,
+	)
+	if !allowed || stopped {
+		t.Errorf("expected alice/tenant-a to be allowed; got allowed=%v stopped=%v", allowed, stopped)
+	}
+}
+
+// TestAuthzCheckStep_ExtraFieldsStaticDeny verifies that a static extra_field
+// (tenant) blocks access when the tenant does not match the policy.
+func TestAuthzCheckStep_ExtraFieldsStaticDeny(t *testing.T) {
+	mod := tenantTestModule(t)
+	reg := &testRegistry{mod: mod}
+
+	s := newTestStep(t, map[string]any{
+		"module": "authz-tenant",
+		"object": "/api/posts",
+		"action": "DELETE",
+		"extra_fields": []any{
+			map[string]any{"key": "tenant", "value": "tenant-b"},
+		},
+	}, reg)
+
+	// alice is admin for tenant-a only; tenant-b should be denied
+	allowed, stopped := execute(t, s,
+		nil,
+		map[string]any{"auth_user_id": "alice"},
+		nil,
+	)
+	if allowed || !stopped {
+		t.Errorf("expected alice/tenant-b to be denied; got allowed=%v stopped=%v", allowed, stopped)
+	}
+}
+
+// TestAuthzCheckStep_ExtraFieldsTemplate verifies that a Go template
+// expression in an extra_field value is resolved from template data.
+func TestAuthzCheckStep_ExtraFieldsTemplate(t *testing.T) {
+	mod := tenantTestModule(t)
+	reg := &testRegistry{mod: mod}
+
+	s := newTestStep(t, map[string]any{
+		"module": "authz-tenant",
+		"object": "/api/posts",
+		"action": "GET",
+		"extra_fields": []any{
+			map[string]any{"key": "tenant", "value": "{{.affiliate_id}}"},
+		},
+	}, reg)
+
+	// bob is editor for tenant-b; pass tenant via triggerData
+	allowed, stopped := execute(t, s,
+		map[string]any{"affiliate_id": "tenant-b"},
+		map[string]any{"auth_user_id": "bob"},
+		nil,
+	)
+	if !allowed || stopped {
+		t.Errorf("expected bob/tenant-b GET to be allowed via template; got allowed=%v stopped=%v", allowed, stopped)
+	}
+}
+
+// TestAuthzCheckStep_ExtraFieldsNestedStepsTemplate verifies that an
+// extra_field template using the {{.steps.stepName.key}} syntax resolves
+// correctly from prior step outputs.
+func TestAuthzCheckStep_ExtraFieldsNestedStepsTemplate(t *testing.T) {
+	mod := tenantTestModule(t)
+	reg := &testRegistry{mod: mod}
+
+	s := newTestStep(t, map[string]any{
+		"module": "authz-tenant",
+		"object": "/api/posts",
+		"action": "GET",
+		"extra_fields": []any{
+			map[string]any{"key": "tenant", "value": "{{.steps.auth.affiliate_id}}"},
+		},
+	}, reg)
+
+	// bob is editor for tenant-b; pass tenant via nested step output
+	allowed, stopped := execute(t, s,
+		nil,
+		map[string]any{"auth_user_id": "bob"},
+		map[string]map[string]any{
+			"auth": {"affiliate_id": "tenant-b"},
+		},
+	)
+	if !allowed || stopped {
+		t.Errorf("expected bob/tenant-b GET (from steps.auth) to be allowed; got allowed=%v stopped=%v", allowed, stopped)
+	}
+}
+
+// TestAuthzCheckStep_ExtraFieldsAudit verifies that extra_field values appear
+// in the audit_event output when audit=true.
+func TestAuthzCheckStep_ExtraFieldsAudit(t *testing.T) {
+	mod := tenantTestModule(t)
+	reg := &testRegistry{mod: mod}
+
+	s := newTestStep(t, map[string]any{
+		"module": "authz-tenant",
+		"object": "/api/posts",
+		"action": "DELETE",
+		"audit":  true,
+		"extra_fields": []any{
+			map[string]any{"key": "tenant", "value": "tenant-a"},
+		},
+	}, reg)
+
+	result, err := s.Execute(context.Background(),
+		nil,
+		nil,
+		map[string]any{"auth_user_id": "alice"},
+		nil,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+	if result.StopPipeline {
+		t.Error("expected alice/tenant-a to be allowed")
+	}
+
+	auditRaw, ok := result.Output["audit_event"]
+	if !ok {
+		t.Fatal("expected audit_event in output when audit=true")
+	}
+	audit, ok := auditRaw.(map[string]any)
+	if !ok {
+		t.Fatalf("expected audit_event to be map[string]any, got %T", auditRaw)
+	}
+	extrasRaw, ok := audit["extra_fields"]
+	if !ok {
+		t.Fatal("expected audit_event.extra_fields when extra_fields configured")
+	}
+	extras, ok := extrasRaw.(map[string]any)
+	if !ok {
+		t.Fatalf("expected audit_event.extra_fields to be map[string]any, got %T", extrasRaw)
+	}
+	if v, _ := extras["tenant"].(string); v != "tenant-a" {
+		t.Errorf("audit_event.extra_fields.tenant: want %q, got %q", "tenant-a", v)
 	}
 }
