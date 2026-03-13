@@ -45,3 +45,34 @@ func NewRemovePolicyStep(name string, config map[string]any) (StepExecutor, erro
 func NewRoleAssignStep(name string, config map[string]any) (StepExecutor, error) {
 	return newAuthzRoleAssignStep(name, config)
 }
+
+// NewPermitModuleFromConfig creates a PermitModule from raw config.
+// Exported for use by the public authz/ package.
+func NewPermitModuleFromConfig(name string, config map[string]any) (*PermitModule, error) {
+	return newPermitModule(name, config)
+}
+
+// NewPermitCheckStep creates a step.permit_check step instance.
+func NewPermitCheckStep(name string, config map[string]any) (StepExecutor, error) {
+	return newPermitCheckStep(name, config)
+}
+
+// NewPermitCheckBulkStep creates a step.permit_check_bulk step instance.
+func NewPermitCheckBulkStep(name string, config map[string]any) (StepExecutor, error) {
+	return newPermitCheckBulkStep(name, config)
+}
+
+// NewPermitUserSyncStep creates a step.permit_user_sync step instance.
+func NewPermitUserSyncStep(name string, config map[string]any) (StepExecutor, error) {
+	return newPermitUserSyncStep(name, config)
+}
+
+// NewPermitRoleAssignStep creates a step.permit_role_assign step instance.
+func NewPermitRoleAssignStep(name string, config map[string]any) (StepExecutor, error) {
+	return newPermitRoleAssignStep(name, config)
+}
+
+// NewPermitRoleUnassignStep creates a step.permit_role_unassign step instance.
+func NewPermitRoleUnassignStep(name string, config map[string]any) (StepExecutor, error) {
+	return newPermitRoleUnassignStep(name, config)
+}

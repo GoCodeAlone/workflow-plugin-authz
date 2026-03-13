@@ -1,5 +1,5 @@
 // Package internal implements the workflow-plugin-authz plugin, providing
-// Casbin-based RBAC authorization as a module and pipeline step.
+// Casbin-based RBAC authorization and Permit.io authorization as modules and pipeline steps.
 package internal
 
 import (
@@ -22,17 +22,17 @@ func (p *authzPlugin) Manifest() sdk.PluginManifest {
 		Name:        "workflow-plugin-authz",
 		Version:     "1.0.0",
 		Author:      "GoCodeAlone",
-		Description: "RBAC authorization plugin using Casbin",
+		Description: "RBAC authorization plugin using Casbin and Permit.io",
 	}
 }
 
 // ModuleTypes returns the module type names this plugin provides.
 func (p *authzPlugin) ModuleTypes() []string {
-	return []string{"authz.casbin"}
+	return []string{"authz.casbin", "permit.provider"}
 }
 
 // CreateModule creates a module instance of the given type and registers it
-// in the global registry so that step.authz_check_casbin can locate it by name.
+// in the global registry so that steps can locate it by name.
 func (p *authzPlugin) CreateModule(typeName, name string, config map[string]any) (sdk.ModuleInstance, error) {
 	switch typeName {
 	case "authz.casbin":
@@ -42,6 +42,12 @@ func (p *authzPlugin) CreateModule(typeName, name string, config map[string]any)
 		}
 		RegisterModule(m)
 		return m, nil
+	case "permit.provider":
+		m, err := newPermitModule(name, config)
+		if err != nil {
+			return nil, err
+		}
+		return m, nil
 	default:
 		return nil, fmt.Errorf("authz plugin: unknown module type %q", typeName)
 	}
@@ -49,12 +55,13 @@ func (p *authzPlugin) CreateModule(typeName, name string, config map[string]any)
 
 // StepTypes returns the step type names this plugin provides.
 func (p *authzPlugin) StepTypes() []string {
-	return []string{
+	casbinSteps := []string{
 		"step.authz_check_casbin",
 		"step.authz_add_policy",
 		"step.authz_remove_policy",
 		"step.authz_role_assign",
 	}
+	return append(casbinSteps, permitStepTypes()...)
 }
 
 // CreateStep creates a step instance of the given type.
@@ -69,6 +76,10 @@ func (p *authzPlugin) CreateStep(typeName, name string, config map[string]any) (
 	case "step.authz_role_assign":
 		return newAuthzRoleAssignStep(name, config)
 	default:
+		// Delegate to permit step registry for all step.permit_* types.
+		if step, err := createPermitStep(typeName, name, config); err == nil {
+			return step, nil
+		}
 		return nil, fmt.Errorf("authz plugin: unknown step type %q", typeName)
 	}
 }
