@@ -30,8 +30,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.RELEASES_TOKEN }}
       - name: Update registry manifest
         if: success()
-        env:
-          REGISTRY_PAT: ${{ secrets.REGISTRY_PAT }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           PLUGIN_NAME="${GITHUB_REPOSITORY##*/}"
@@ -74,4 +72,5 @@ jobs:
             --body "Auto-sync \`${PLUGIN_NAME}\` manifest to v${VERSION}" \
             --label "auto-sync" || true
         env:
+          REGISTRY_PAT: ${{ secrets.REGISTRY_PAT }}
           GH_TOKEN: ${{ secrets.REGISTRY_PAT }}
