@@ -1,16 +1,7 @@
 version: 2
 
-before:
-  hooks:
-    - "cp plugin.json plugin.json.orig"
-    - "sed -i.bak 's/\"version\": \".*\"/\"version\": \"{{ .Version }}\"/' plugin.json && rm -f plugin.json.bak"
-
-after:
-  hooks:
-    - "mv plugin.json.orig plugin.json"
-
 builds:
-  - main: ./cmd/{{ .ProjectName }}
+  - main: "./cmd/{{ .ProjectName }}"
     binary: "{{ .ProjectName }}"
     env:
       - CGO_ENABLED=0
@@ -21,13 +12,14 @@ builds:
       - amd64
       - arm64
     ldflags:
-      - -s -w -X main.version={{.Version}}
+      - "-s -w"
 
 archives:
   - formats: [tar.gz]
     name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
     files:
       - plugin.json
+      - LICENSE
 
 checksum:
   name_template: checksums.txt
