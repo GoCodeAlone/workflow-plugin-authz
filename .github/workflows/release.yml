@@ -29,7 +29,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASES_TOKEN }}
       - name: Update registry manifest
-        if: success()
+        if: success() && env.GH_TOKEN != ''
+        continue-on-error: true
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           PLUGIN_NAME="${GITHUB_REPOSITORY##*/}"
