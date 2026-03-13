@@ -60,6 +60,20 @@ func (p *authzPlugin) StepTypes() []string {
 		"step.authz_add_policy",
 		"step.authz_remove_policy",
 		"step.authz_role_assign",
+		"step.authz_capabilities",
+		// ACL steps
+		"step.authz_acl_grant",
+		"step.authz_acl_revoke",
+		"step.authz_acl_check",
+		"step.authz_acl_list",
+		// ABAC steps
+		"step.authz_abac_check",
+		"step.authz_abac_add_policy",
+		// ReBAC steps
+		"step.authz_rebac_add_relation",
+		"step.authz_rebac_remove_relation",
+		"step.authz_rebac_check",
+		"step.authz_rebac_list_relations",
 	}
 	return append(casbinSteps, permitStepTypes()...)
 }
@@ -75,6 +89,31 @@ func (p *authzPlugin) CreateStep(typeName, name string, config map[string]any) (
 		return newAuthzRemovePolicyStep(name, config)
 	case "step.authz_role_assign":
 		return newAuthzRoleAssignStep(name, config)
+	case "step.authz_capabilities":
+		return newAuthzCapabilitiesStep(name, config)
+	// ACL steps
+	case "step.authz_acl_grant":
+		return newAuthzACLGrantStep(name, config)
+	case "step.authz_acl_revoke":
+		return newAuthzACLRevokeStep(name, config)
+	case "step.authz_acl_check":
+		return newAuthzACLCheckStep(name, config)
+	case "step.authz_acl_list":
+		return newAuthzACLListStep(name, config)
+	// ABAC steps
+	case "step.authz_abac_check":
+		return newAuthzABACCheckStep(name, config)
+	case "step.authz_abac_add_policy":
+		return newAuthzABACAddPolicyStep(name, config)
+	// ReBAC steps
+	case "step.authz_rebac_add_relation":
+		return newAuthzReBACAddRelationStep(name, config)
+	case "step.authz_rebac_remove_relation":
+		return newAuthzReBACRemoveRelationStep(name, config)
+	case "step.authz_rebac_check":
+		return newAuthzReBACCheckStep(name, config)
+	case "step.authz_rebac_list_relations":
+		return newAuthzReBACListRelationsStep(name, config)
 	default:
 		// Delegate to permit step registry for all step.permit_* types.
 		if step, err := createPermitStep(typeName, name, config); err == nil {

@@ -10,10 +10,10 @@ import (
 // All constructors have the signature: func(name string, config map[string]any) (sdk.StepInstance, error)
 var permitStepConstructors = map[string]func(string, map[string]any) (sdk.StepInstance, error){
 	// Authorization checks
-	"step.permit_check":             wrapPermitStep(newPermitCheckStep),
-	"step.permit_check_bulk":        wrapPermitStep(newPermitCheckBulkStep),
-	"step.permit_user_permissions":  wrapPermitStep(newPermitUserPermissionsStep),
-	"step.permit_authorized_users":  wrapPermitStep(newPermitAuthorizedUsersStep),
+	"step.permit_check":            wrapPermitStep(newPermitCheckStep),
+	"step.permit_check_bulk":       wrapPermitStep(newPermitCheckBulkStep),
+	"step.permit_user_permissions": wrapPermitStep(newPermitUserPermissionsStep),
+	"step.permit_authorized_users": wrapPermitStep(newPermitAuthorizedUsersStep),
 
 	// User management
 	"step.permit_user_create":    wrapPermitStep(newPermitUserCreateStep),
