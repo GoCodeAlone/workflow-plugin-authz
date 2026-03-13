@@ -10,8 +10,8 @@ after:
     - "mv plugin.json.orig plugin.json"
 
 builds:
-  - main: ./cmd/workflow-plugin-authz
-    binary: workflow-plugin-authz
+  - main: ./cmd/{{ .ProjectName }}
+    binary: "{{ .ProjectName }}"
     env:
       - CGO_ENABLED=0
     goos:
