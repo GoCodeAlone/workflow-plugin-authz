@@ -8,6 +8,10 @@ import (
 	sdk "github.com/GoCodeAlone/workflow/plugin/external/sdk"
 )
 
+// Version is set at build time via -ldflags
+// "-X github.com/GoCodeAlone/workflow-plugin-authz/internal.Version=X.Y.Z"
+var Version = "dev"
+
 // authzPlugin implements sdk.PluginProvider, sdk.ModuleProvider, and sdk.StepProvider.
 type authzPlugin struct{}
 
@@ -20,7 +24,7 @@ func NewAuthzPlugin() sdk.PluginProvider {
 func (p *authzPlugin) Manifest() sdk.PluginManifest {
 	return sdk.PluginManifest{
 		Name:        "workflow-plugin-authz",
-		Version:     "1.0.0",
+		Version:     Version,
 		Author:      "GoCodeAlone",
 		Description: "RBAC authorization plugin using Casbin and Permit.io",
 	}
