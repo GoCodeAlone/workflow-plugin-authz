@@ -201,7 +201,7 @@ func (p *authzPlugin) CreateTypedStep(typeName, name string, config *anypb.Any) 
 	case "step.authz_rebac_list_relations":
 		return sdk.NewTypedStepFactory(typeName, &contracts.ListConfig{}, &contracts.ListInput{}, typedList(wrapStepConstructor(newAuthzReBACListRelationsStep), globalRegistry)).CreateTypedStep(typeName, name, config)
 	default:
-		if _, err := createPermitStep(typeName, name, map[string]any{}); err == nil {
+		if isPermitStepType(typeName) {
 			return sdk.NewTypedStepFactory(typeName, &contracts.PermitStepConfig{}, &contracts.PermitStepInput{}, typedPermitStep(typeName)).CreateTypedStep(typeName, name, config)
 		}
 		return nil, fmt.Errorf("authz plugin: unknown step type %q", typeName)

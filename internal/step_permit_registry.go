@@ -134,6 +134,11 @@ func createPermitStep(typeName, name string, config map[string]any) (sdk.StepIns
 	return ctor(name, config)
 }
 
+func isPermitStepType(typeName string) bool {
+	_, ok := permitStepConstructors[typeName]
+	return ok
+}
+
 // permitStepTypes returns all registered permit step type names.
 func permitStepTypes() []string {
 	types := make([]string, 0, len(permitStepConstructors))
