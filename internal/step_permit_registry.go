@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"sort"
 
 	sdk "github.com/GoCodeAlone/workflow/plugin/external/sdk"
 )
@@ -139,6 +140,7 @@ func permitStepTypes() []string {
 	for k := range permitStepConstructors {
 		types = append(types, k)
 	}
+	sort.Strings(types)
 	return types
 }
 
