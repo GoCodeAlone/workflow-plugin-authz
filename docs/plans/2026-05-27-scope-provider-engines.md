@@ -32,7 +32,7 @@
 | 2 | Declared-scope authz UI picker | Task 4 | workflow-plugin-authz-ui: feat/scope-picker |
 | 3 | Keto-backed admin tailnet demo | Task 5 | workflow-scenarios: feat/keto-admin-demo |
 
-**Status:** Locked 2026-05-27T03:09:41Z
+**Status:** Complete 2026-05-27T03:30:47Z
 
 ### Task 1: Normalized Scope-Role Provider Contract
 
