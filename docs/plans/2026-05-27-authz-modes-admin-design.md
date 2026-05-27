@@ -73,17 +73,24 @@ YAML gets mode-native typed steps plus a unified decision step:
 | `step.authz_abac_policy_upsert`, `step.authz_abac_policy_remove`, `step.authz_abac_check` | attribute policy lifecycle. |
 | `step.authz_rebac_tuple_upsert`, `step.authz_rebac_tuple_remove`, `step.authz_rebac_check` | relationship lifecycle. |
 
-YAML can require capabilities declaratively:
+YAML can require capabilities declaratively through authz-owned config or a typed startup step; no engine-level `modules[].requires` field is introduced:
 
 ```yaml
 modules:
   - name: authz
     type: authz.keto
     config: { read_url: http://keto:4466, write_url: http://keto:4467 }
-    requires:
-      authz:
-        modes: [rebac]
-        operations: [check, manage_relations]
+      required_capabilities:
+        - mode: rebac
+          operations: [check, manage_relations]
+
+steps:
+  - type: step.authz_require_capabilities
+    config:
+      module: authz
+      requirements:
+        - mode: rebac
+          operations: [check, manage_relations]
 ```
 
 ### Go / Module Code
@@ -195,6 +202,25 @@ Projection is for UX only. Mutating backend APIs still call the unified decision
 | A4 | Permit live environment may not be available locally/CI. | no real Permit verification by default. | Fake SDK conformance + env-gated live suite + UI unavailable state. |
 | A5 | UI should avoid free text wherever possible. | users need custom string attrs. | Allow custom only for schema-declared dynamic attributes. |
 
+## Adversarial Design Review
+
+**Phase:** design
+**Status:** PASS after revision
+
+| Class | Result | Note |
+|---|---|---|
+| Project-guidance conflicts | Fixed | Initial YAML example implied engine-owned `modules[].requires`; revised to authz-owned config/typed step. |
+| Assumptions under attack | Clean | A1-A5 list fallback paths; provider-specific edge cases pushed to capability-specific tabs. |
+| Repo-precedent conflicts | Clean | Uses existing plugin-owned proto/contract pattern and admin contribution model. |
+| YAGNI | Clean | Does not add Permify provider or wholesale Casdoor adoption. |
+| Missing failure modes | Clean | Provider down, unsupported mode, schema changes, stale SPA projection covered. |
+| Security/privacy | Clean | Backend enforcement, least privilege, CSRF, validation, secret redaction, audit specified. |
+| Infrastructure impact | Clean | Local docker/Keto and env-gated Permit only; no production deploy. |
+| Multi-component validation | Clean | Provider, UI, scenario, Docker, Playwright, YAML checks specified. |
+| Rollback | Clean | Per-component rollback paths specified. |
+| Simpler alternative | Clean | Casdoor/Casbin portal considered and rejected for provider-neutral embedded Workflow use. |
+| User-intent drift | Clean | Directly covers RBAC/ABAC/ReBAC, capabilities, UI friendliness, YAML/Go/SPA, demo/QA/security review. |
+
 ## Self-Challenge
 
 | doubt | response |
@@ -202,4 +228,3 @@ Projection is for UX only. Mutating backend APIs still call the unified decision
 | Could this be just Casdoor/Casbin portal? | No: it is Casbin-specific and not Workflow provider-neutral/admin-contribution native. |
 | Is unified decision API too much? | Needed to make YAML, Go modules, and SPA projection use one enforcement surface while preserving model-native management APIs. |
 | Is ABAC UI overreach? | User explicitly asked ABAC and user-friendly lookup-backed forms; plan scopes ABAC to declared schemas/policies, not arbitrary DSL authoring first. |
-
