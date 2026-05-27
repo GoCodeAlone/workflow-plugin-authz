@@ -42,6 +42,11 @@ message PermitModuleConfig {
   string environment = 5;
 }
 
+message KetoModuleConfig {
+  string read_url = 1;
+  string write_url = 2;
+}
+
 message ExtraField {
   string key = 1;
   string value = 2;

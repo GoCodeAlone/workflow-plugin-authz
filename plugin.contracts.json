@@ -15,6 +15,12 @@
     },
     {
       "kind": "module",
+      "type": "authz.keto",
+      "mode": "strict",
+      "config": "workflow.plugins.authz.v1.KetoModuleConfig"
+    },
+    {
+      "kind": "module",
       "type": "authz.scope_catalog",
       "mode": "strict",
       "config": "workflow.plugins.authz.v1.ScopeCatalogConfig"

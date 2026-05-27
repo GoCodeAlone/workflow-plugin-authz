@@ -21,7 +21,7 @@ var Version = "0.0.0"
 // authzPlugin implements sdk.PluginProvider, sdk.ModuleProvider, and sdk.StepProvider.
 type authzPlugin struct{}
 
-var moduleTypes = []string{"authz.casbin", "permit.provider", "authz.scope_catalog"}
+var moduleTypes = []string{"authz.casbin", "permit.provider", "authz.keto", "authz.scope_catalog"}
 
 var casbinStepTypes = []string{
 	"step.authz_check_casbin",
@@ -83,6 +83,8 @@ func (p *authzPlugin) CreateModule(typeName, name string, config map[string]any)
 			return nil, err
 		}
 		return m, nil
+	case "authz.keto":
+		return newKetoModule(name, config)
 	case "authz.scope_catalog":
 		return newScopeCatalogModule(name, config), nil
 	default:
@@ -106,6 +108,11 @@ func (p *authzPlugin) CreateTypedModule(typeName, name string, config *anypb.Any
 	case "permit.provider":
 		factory := sdk.NewTypedModuleFactory(typeName, &contracts.PermitModuleConfig{}, func(name string, cfg *contracts.PermitModuleConfig) (sdk.ModuleInstance, error) {
 			return newPermitModule(name, permitModuleConfigToMap(cfg))
+		})
+		return factory.CreateTypedModule(typeName, name, config)
+	case "authz.keto":
+		factory := sdk.NewTypedModuleFactory(typeName, &contracts.KetoModuleConfig{}, func(name string, cfg *contracts.KetoModuleConfig) (sdk.ModuleInstance, error) {
+			return newKetoModule(name, ketoModuleConfigToMap(cfg))
 		})
 		return factory.CreateTypedModule(typeName, name, config)
 	case "authz.scope_catalog":
@@ -220,6 +227,7 @@ func (p *authzPlugin) ContractRegistry() *pb.ContractRegistry {
 	contractsList := []*pb.ContractDescriptor{
 		moduleContract("authz.casbin", "CasbinModuleConfig"),
 		moduleContract("permit.provider", "PermitModuleConfig"),
+		moduleContract("authz.keto", "KetoModuleConfig"),
 		moduleContract("authz.scope_catalog", "ScopeCatalogConfig"),
 		stepContract("step.authz_check_casbin", "AuthzCheckConfig", "AuthzCheckInput", "AuthzCheckOutput"),
 		stepContract("step.authz_add_policy", "PolicyRuleConfig", "PolicyRuleInput", "PolicyRuleOutput"),
