@@ -145,6 +145,41 @@ func typedAuthzCapabilities(registry moduleRegistry) sdk.TypedStepHandler[*contr
 	}
 }
 
+func typedAuthzDecision(registry moduleRegistry) sdk.TypedStepHandler[*contracts.AuthorizationDecisionConfig, *contracts.AuthorizationDecisionInput, *contracts.AuthorizationDecisionOutput] {
+	return func(ctx context.Context, req sdk.TypedStepRequest[*contracts.AuthorizationDecisionConfig, *contracts.AuthorizationDecisionInput]) (*sdk.TypedStepResult[*contracts.AuthorizationDecisionOutput], error) {
+		cfg := mergeStringFields(authorizationDecisionConfigToMap(req.Config), authorizationDecisionInputToMap(req.Input))
+		step, err := newAuthzDecisionStep("typed", cfg)
+		if err != nil {
+			return nil, err
+		}
+		step.registry = registry
+		result, err := step.Execute(ctx, req.TriggerData, req.StepOutputs, req.Current, req.Metadata, nil)
+		if err != nil {
+			return nil, err
+		}
+		return &sdk.TypedStepResult[*contracts.AuthorizationDecisionOutput]{Output: authorizationDecisionOutputFromMap(result.Output)}, nil
+	}
+}
+
+func typedAuthzRequireCapabilities(registry moduleRegistry) sdk.TypedStepHandler[*contracts.RequireCapabilitiesConfig, *contracts.RequireCapabilitiesInput, *contracts.ProviderCapabilitiesOutput] {
+	return func(ctx context.Context, req sdk.TypedStepRequest[*contracts.RequireCapabilitiesConfig, *contracts.RequireCapabilitiesInput]) (*sdk.TypedStepResult[*contracts.ProviderCapabilitiesOutput], error) {
+		cfg := requireCapabilitiesConfigToMap(req.Config)
+		for k, v := range requireCapabilitiesInputToMap(req.Input) {
+			cfg[k] = v
+		}
+		step, err := newAuthzRequireCapabilitiesStep("typed", cfg)
+		if err != nil {
+			return nil, err
+		}
+		step.registry = registry
+		result, err := step.Execute(ctx, req.TriggerData, req.StepOutputs, req.Current, req.Metadata, nil)
+		if err != nil {
+			return nil, err
+		}
+		return &sdk.TypedStepResult[*contracts.ProviderCapabilitiesOutput]{Output: providerCapabilitiesOutputFromMap(result.Output)}, nil
+	}
+}
+
 func typedSubjectObjectAction(create func(string, map[string]any) (sdk.StepInstance, error), registry moduleRegistry) sdk.TypedStepHandler[*contracts.SubjectObjectActionConfig, *contracts.SubjectObjectActionInput, *contracts.SubjectObjectActionOutput] {
 	return func(ctx context.Context, req sdk.TypedStepRequest[*contracts.SubjectObjectActionConfig, *contracts.SubjectObjectActionInput]) (*sdk.TypedStepResult[*contracts.SubjectObjectActionOutput], error) {
 		cfg := mergeStringFields(subjectObjectActionConfigToMap(req.Config), subjectObjectActionInputToMap(req.Input))
@@ -325,6 +360,34 @@ func capabilitiesInputToMap(input *contracts.CapabilitiesInput) map[string]any {
 	return compactMap(map[string]any{"module": input.GetModule(), "provider": input.GetProvider()})
 }
 
+func authorizationDecisionConfigToMap(cfg *contracts.AuthorizationDecisionConfig) map[string]any {
+	if cfg == nil {
+		return map[string]any{}
+	}
+	return compactMap(map[string]any{"module": cfg.GetModule(), "provider": cfg.GetProvider(), "mode": authzModeString(cfg.GetMode()), "subject": cfg.GetSubject(), "context": cfg.GetContext(), "resource": cfg.GetResource(), "action": cfg.GetAction(), "scope": cfg.GetScope(), "relation": cfg.GetRelation(), "explain": cfg.GetExplain()})
+}
+
+func authorizationDecisionInputToMap(input *contracts.AuthorizationDecisionInput) map[string]any {
+	if input == nil {
+		return map[string]any{}
+	}
+	return compactMap(map[string]any{"module": input.GetModule(), "provider": input.GetProvider(), "mode": authzModeString(input.GetMode()), "subject": input.GetSubject(), "context": input.GetContext(), "resource": input.GetResource(), "action": input.GetAction(), "scope": input.GetScope(), "relation": input.GetRelation(), "subject_attributes": stringMapFromStruct(input.GetSubjectAttributes()), "resource_attributes": stringMapFromStruct(input.GetResourceAttributes()), "environment_attributes": stringMapFromStruct(input.GetEnvironmentAttributes()), "explain": input.GetExplain()})
+}
+
+func requireCapabilitiesConfigToMap(cfg *contracts.RequireCapabilitiesConfig) map[string]any {
+	if cfg == nil {
+		return map[string]any{}
+	}
+	return compactMap(map[string]any{"module": cfg.GetModule(), "provider": cfg.GetProvider(), "requirements": capabilityRequirementsToAny(cfg.GetRequirements())})
+}
+
+func requireCapabilitiesInputToMap(input *contracts.RequireCapabilitiesInput) map[string]any {
+	if input == nil {
+		return map[string]any{}
+	}
+	return compactMap(map[string]any{"module": input.GetModule(), "provider": input.GetProvider(), "requirements": capabilityRequirementsToAny(input.GetRequirements())})
+}
+
 func subjectObjectActionConfigToMap(cfg *contracts.SubjectObjectActionConfig) map[string]any {
 	if cfg == nil {
 		return nil
@@ -423,6 +486,28 @@ func capabilitiesOutputFromMap(values map[string]any) *contracts.CapabilitiesOut
 		Descriptors:         contractCapabilityDescriptorsFromAny(values["capability_descriptors"]),
 		Health:              stringValue(values["health"]),
 		MissingRequirements: stringSliceValue(values["missing_requirements"]),
+	}
+}
+
+func providerCapabilitiesOutputFromMap(values map[string]any) *contracts.ProviderCapabilitiesOutput {
+	return &contracts.ProviderCapabilitiesOutput{
+		Module:              stringValue(values["module"]),
+		Provider:            stringValue(values["provider"]),
+		Capabilities:        stringSliceValue(values["capabilities"]),
+		Descriptors:         contractCapabilityDescriptorsFromAny(values["capability_descriptors"]),
+		Health:              stringValue(values["health"]),
+		MissingRequirements: stringSliceValue(values["missing_requirements"]),
+	}
+}
+
+func authorizationDecisionOutputFromMap(values map[string]any) *contracts.AuthorizationDecisionOutput {
+	return &contracts.AuthorizationDecisionOutput{
+		Allowed: boolValue(values["allowed"]),
+		Mode:    contractAuthzMode(stringValue(values["mode"])),
+		Subject: stringValue(values["subject"]),
+		Context: stringValue(values["context"]),
+		Reason:  stringValue(values["reason"]),
+		Explain: stringValue(values["explain"]),
 	}
 }
 
@@ -682,6 +767,55 @@ func contractAuthzOperations(operations []string) []contracts.AuthzOperation {
 		case OperationList:
 			out = append(out, contracts.AuthzOperation_AUTHZ_OPERATION_LIST)
 		}
+	}
+	return out
+}
+
+func authzModeString(mode contracts.AuthzMode) string {
+	switch mode {
+	case contracts.AuthzMode_AUTHZ_MODE_RBAC:
+		return string(CapabilityRBAC)
+	case contracts.AuthzMode_AUTHZ_MODE_ABAC:
+		return string(CapabilityABAC)
+	case contracts.AuthzMode_AUTHZ_MODE_REBAC:
+		return string(CapabilityReBAC)
+	case contracts.AuthzMode_AUTHZ_MODE_ACL:
+		return string(CapabilityACL)
+	default:
+		return ""
+	}
+}
+
+func capabilityRequirementsToAny(requirements []*contracts.CapabilityRequirement) []any {
+	out := make([]any, 0, len(requirements))
+	for _, requirement := range requirements {
+		operations := make([]any, 0, len(requirement.GetOperations()))
+		for _, operation := range requirement.GetOperations() {
+			switch operation {
+			case contracts.AuthzOperation_AUTHZ_OPERATION_CHECK:
+				operations = append(operations, string(OperationCheck))
+			case contracts.AuthzOperation_AUTHZ_OPERATION_MANAGE_ROLES:
+				operations = append(operations, string(OperationManageRoles))
+			case contracts.AuthzOperation_AUTHZ_OPERATION_MANAGE_POLICIES:
+				operations = append(operations, string(OperationManagePolicies))
+			case contracts.AuthzOperation_AUTHZ_OPERATION_MANAGE_RELATIONS:
+				operations = append(operations, string(OperationManageRelations))
+			case contracts.AuthzOperation_AUTHZ_OPERATION_LIST:
+				operations = append(operations, string(OperationList))
+			}
+		}
+		out = append(out, map[string]any{"mode": authzModeString(requirement.GetMode()), "operations": operations})
+	}
+	return out
+}
+
+func stringMapFromStruct(value *structpb.Struct) map[string]string {
+	if value == nil {
+		return nil
+	}
+	out := make(map[string]string, len(value.GetFields()))
+	for key, field := range value.GetFields() {
+		out[key] = fmt.Sprint(field.AsInterface())
 	}
 	return out
 }

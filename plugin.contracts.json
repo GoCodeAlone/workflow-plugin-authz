@@ -27,6 +27,22 @@
     },
     {
       "kind": "step",
+      "type": "step.authz_check",
+      "mode": "strict",
+      "config": "workflow.plugins.authz.v1.AuthorizationDecisionConfig",
+      "input": "workflow.plugins.authz.v1.AuthorizationDecisionInput",
+      "output": "workflow.plugins.authz.v1.AuthorizationDecisionOutput"
+    },
+    {
+      "kind": "step",
+      "type": "step.authz_require_capabilities",
+      "mode": "strict",
+      "config": "workflow.plugins.authz.v1.RequireCapabilitiesConfig",
+      "input": "workflow.plugins.authz.v1.RequireCapabilitiesInput",
+      "output": "workflow.plugins.authz.v1.ProviderCapabilitiesOutput"
+    },
+    {
+      "kind": "step",
       "type": "step.authz_check_casbin",
       "mode": "strict",
       "config": "workflow.plugins.authz.v1.AuthzCheckConfig",

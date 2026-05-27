@@ -206,6 +206,44 @@ On success the step outputs:
 }
 ```
 
+## Unified authorization decisions
+
+`step.authz_check` routes one Workflow gate through the configured provider and
+mode. Use it for route guards, workflow action guards, and module-owned admin
+actions without coupling YAML to Casbin, Keto, or Permit-specific APIs.
+
+```yaml
+steps:
+  - type: step.authz_require_capabilities
+    config:
+      provider: keto
+      module: authz
+      requirements:
+        - mode: rebac
+          operations: [check, manage_relations]
+
+  - type: step.authz_check
+    config:
+      provider: casbin
+      module: authz
+      mode: rbac
+      subject: "{{.auth_user_id}}"
+      context: admin
+      scope: admin:authz.roles:update
+```
+
+Go modules can call the same service surface through Workflow's module/service
+registry; the request shape is provider-neutral:
+
+```go
+decision, err := authzService.InvokeMethod("CheckRelation", map[string]any{
+    "subject": userID,
+    "context": "frontend",
+    "object": documentID,
+    "relation": "owner",
+})
+```
+
 ## Build
 
 ```sh

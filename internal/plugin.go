@@ -24,6 +24,8 @@ type authzPlugin struct{}
 var moduleTypes = []string{"authz.casbin", "permit.provider", "authz.keto", "authz.scope_catalog"}
 
 var casbinStepTypes = []string{
+	"step.authz_check",
+	"step.authz_require_capabilities",
 	"step.authz_check_casbin",
 	"step.authz_add_policy",
 	"step.authz_remove_policy",
@@ -155,6 +157,10 @@ func (p *authzPlugin) TypedStepTypes() []string {
 // CreateStep creates a step instance of the given type.
 func (p *authzPlugin) CreateStep(typeName, name string, config map[string]any) (sdk.StepInstance, error) {
 	switch typeName {
+	case "step.authz_check":
+		return newAuthzDecisionStep(name, config)
+	case "step.authz_require_capabilities":
+		return newAuthzRequireCapabilitiesStep(name, config)
 	case "step.authz_check_casbin":
 		return newAuthzCheckStep(name, config)
 	case "step.authz_add_policy":
@@ -200,6 +206,10 @@ func (p *authzPlugin) CreateStep(typeName, name string, config map[string]any) (
 // CreateTypedStep creates a protobuf-backed step instance.
 func (p *authzPlugin) CreateTypedStep(typeName, name string, config *anypb.Any) (sdk.StepInstance, error) {
 	switch typeName {
+	case "step.authz_check":
+		return sdk.NewTypedStepFactory(typeName, &contracts.AuthorizationDecisionConfig{}, &contracts.AuthorizationDecisionInput{}, typedAuthzDecision(globalRegistry)).CreateTypedStep(typeName, name, config)
+	case "step.authz_require_capabilities":
+		return sdk.NewTypedStepFactory(typeName, &contracts.RequireCapabilitiesConfig{}, &contracts.RequireCapabilitiesInput{}, typedAuthzRequireCapabilities(globalRegistry)).CreateTypedStep(typeName, name, config)
 	case "step.authz_check_casbin":
 		return sdk.NewTypedStepFactory(typeName, &contracts.AuthzCheckConfig{}, &contracts.AuthzCheckInput{}, typedAuthzCheck(globalRegistry)).CreateTypedStep(typeName, name, config)
 	case "step.authz_add_policy":
@@ -245,6 +255,8 @@ func (p *authzPlugin) ContractRegistry() *pb.ContractRegistry {
 		moduleContract("permit.provider", "PermitModuleConfig"),
 		moduleContract("authz.keto", "KetoModuleConfig"),
 		moduleContract("authz.scope_catalog", "ScopeCatalogConfig"),
+		stepContract("step.authz_check", "AuthorizationDecisionConfig", "AuthorizationDecisionInput", "AuthorizationDecisionOutput"),
+		stepContract("step.authz_require_capabilities", "RequireCapabilitiesConfig", "RequireCapabilitiesInput", "ProviderCapabilitiesOutput"),
 		stepContract("step.authz_check_casbin", "AuthzCheckConfig", "AuthzCheckInput", "AuthzCheckOutput"),
 		stepContract("step.authz_add_policy", "PolicyRuleConfig", "PolicyRuleInput", "PolicyRuleOutput"),
 		stepContract("step.authz_remove_policy", "PolicyRuleConfig", "PolicyRuleInput", "PolicyRuleOutput"),
