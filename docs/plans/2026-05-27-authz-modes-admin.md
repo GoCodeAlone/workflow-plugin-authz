@@ -290,7 +290,7 @@
 **Files:**
 - Modify: `docs/plans/2026-05-27-authz-modes-admin.md`
 - Create: `docs/security/2026-05-27-authz-modes-review.md`
-- Modify as needed: repo-specific tests uncovered by QA.
+- Modify only files already owned by Tasks 1-11 when fixing validation findings; any new file or new feature scope requires the scope-lock amendment path.
 
 **Steps:**
 1. Run full authz tests: `GOWORK=off go test ./... && wfctl plugin validate-contract .`.
@@ -327,3 +327,23 @@
 | Adversarial security review | Task 12 |
 | Demo refreshed and tested | Task 11, Task 12 |
 
+## Adversarial Plan Review
+
+**Phase:** plan
+**Status:** PASS after revision
+
+| Class | Result | Note |
+|---|---|---|
+| Project-guidance conflicts | Clean | Plan keeps changes in plugin-owned contracts and scenario/demo repos; no standalone CLI/tool. |
+| Assumptions under attack | Clean | Provider-specific uncertainty handled via unsupported descriptors, env-gated Permit, and local Casbin/Keto proof. |
+| Repo-precedent conflicts | Clean | Follows existing strict proto, typed step, admin contribution, and scenario test patterns. |
+| YAGNI | Clean | Permify and full Casdoor replacement explicitly out of scope. |
+| Missing failure modes | Clean | Unsupported provider modes, provider down, stale projection, attr schema drift, tuple delete/deselect are tested. |
+| Security/privacy | Clean | Task 12 requires fail-closed, confused deputy, CSRF, injection, secret redaction, projection, audit, and tenant/context checks. |
+| Infrastructure impact | Clean | Local Docker/Tailnet only; Permit live path env-gated. |
+| Multi-component validation | Clean | Provider packages, UI package, Docker scenario, provider matrix, Playwright QA all required. |
+| Rollback | Clean | Each runtime-affecting task includes rollback. |
+| Verification-class mismatch | Clean | API/contract/UI/runtime/security tasks have class-appropriate verification. |
+| Hidden serial dependencies | Clean | PR grouping serializes provider contracts before UI and demo. |
+| Manifest drift | Clean | 4 PRs, 12 tasks, each task listed once. |
+| Issue fixed | Fixed | Task 12 originally allowed `Modify as needed`; now restricted to files owned by Tasks 1-11 unless amendment path is used. |
