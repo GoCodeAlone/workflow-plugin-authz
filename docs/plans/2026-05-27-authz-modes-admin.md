@@ -33,7 +33,7 @@
 | 3 | Scenario demo and provider rotation | Task 11 | feat/authz-modes-demo |
 | 4 | Integration, exploratory QA, security review | Task 12 | feat/authz-modes-validation |
 
-**Status:** Draft
+**Status:** Locked 2026-05-27T04:46:45Z
 
 ## Preflight Already Completed
 
