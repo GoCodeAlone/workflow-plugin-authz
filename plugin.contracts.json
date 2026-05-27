@@ -211,6 +211,46 @@
     },
     {
       "kind": "service_method",
+      "serviceName": "AttributePolicyProvider",
+      "method": "DeclareAttributes",
+      "mode": "strict",
+      "input": "workflow.plugins.authz.v1.DeclareAttributesInput",
+      "output": "workflow.plugins.authz.v1.DeclareAttributesOutput"
+    },
+    {
+      "kind": "service_method",
+      "serviceName": "AttributePolicyProvider",
+      "method": "UpsertAttributePolicy",
+      "mode": "strict",
+      "input": "workflow.plugins.authz.v1.UpsertAttributePolicyInput",
+      "output": "workflow.plugins.authz.v1.UpsertAttributePolicyOutput"
+    },
+    {
+      "kind": "service_method",
+      "serviceName": "AttributePolicyProvider",
+      "method": "ListAttributePolicies",
+      "mode": "strict",
+      "input": "workflow.plugins.authz.v1.ListAttributePoliciesInput",
+      "output": "workflow.plugins.authz.v1.ListAttributePoliciesOutput"
+    },
+    {
+      "kind": "service_method",
+      "serviceName": "AttributePolicyProvider",
+      "method": "RemoveAttributePolicy",
+      "mode": "strict",
+      "input": "workflow.plugins.authz.v1.RemoveAttributePolicyInput",
+      "output": "workflow.plugins.authz.v1.RemoveAttributePolicyOutput"
+    },
+    {
+      "kind": "service_method",
+      "serviceName": "AttributePolicyProvider",
+      "method": "CheckAttributes",
+      "mode": "strict",
+      "input": "workflow.plugins.authz.v1.AttributeCheckInput",
+      "output": "workflow.plugins.authz.v1.AttributeCheckOutput"
+    },
+    {
+      "kind": "service_method",
       "serviceName": "ScopeRoleProvider",
       "method": "DeclareScopes",
       "mode": "strict",

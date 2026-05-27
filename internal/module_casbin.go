@@ -29,6 +29,7 @@ type CasbinModule struct {
 	mu         sync.RWMutex
 	enforcer   *casbin.Enforcer
 	scopeRoles *scopeRoleStore
+	abac       *attributePolicyStore
 
 	// polling watcher fields
 	stopCh chan struct{}
@@ -93,6 +94,7 @@ func newCasbinModule(name string, config map[string]any) (*CasbinModule, error) 
 		name:       name,
 		config:     cfg,
 		scopeRoles: newScopeRoleStore("casbin"),
+		abac:       newAttributePolicyStore("casbin", nil),
 	}, nil
 }
 
@@ -497,6 +499,41 @@ func (m *CasbinModule) CheckScope(ctx context.Context, check ScopeCheck) (ScopeC
 	return m.scopeRoleStore().CheckScope(ctx, check)
 }
 
+func (m *CasbinModule) DeclareAttributes(ctx context.Context, attrs []*contracts.AttributeDeclaration) error {
+	if !m.SupportsCapability(CapabilityABAC) {
+		return errUnsupportedABAC
+	}
+	return m.abac.DeclareAttributes(ctx, attrs)
+}
+
+func (m *CasbinModule) UpsertAttributePolicy(ctx context.Context, policy AttributePolicy) error {
+	if !m.SupportsCapability(CapabilityABAC) {
+		return errUnsupportedABAC
+	}
+	return m.abac.UpsertAttributePolicy(ctx, policy)
+}
+
+func (m *CasbinModule) ListAttributePolicies(ctx context.Context, filter AttributePolicyFilter) ([]AttributePolicy, error) {
+	if !m.SupportsCapability(CapabilityABAC) {
+		return nil, errUnsupportedABAC
+	}
+	return m.abac.ListAttributePolicies(ctx, filter)
+}
+
+func (m *CasbinModule) RemoveAttributePolicy(ctx context.Context, filter AttributePolicyFilter) error {
+	if !m.SupportsCapability(CapabilityABAC) {
+		return errUnsupportedABAC
+	}
+	return m.abac.RemoveAttributePolicy(ctx, filter)
+}
+
+func (m *CasbinModule) CheckAttributes(ctx context.Context, check AttributeCheck) (AttributeCheckResult, error) {
+	if !m.SupportsCapability(CapabilityABAC) {
+		return AttributeCheckResult{}, errUnsupportedABAC
+	}
+	return m.abac.CheckAttributes(ctx, check)
+}
+
 func (m *CasbinModule) InvokeMethod(method string, input map[string]any) (map[string]any, error) {
 	ctx := context.Background()
 	switch method {
@@ -539,6 +576,16 @@ func (m *CasbinModule) InvokeMethod(method string, input map[string]any) (map[st
 		return providerCapabilitiesInvoke(m.name, "casbin", m, input, false)
 	case "RequireCapabilities":
 		return providerCapabilitiesInvoke(m.name, "casbin", m, input, true)
+	case "DeclareAttributes":
+		return declareAttributesInvoke(ctx, m, input)
+	case "UpsertAttributePolicy":
+		return upsertAttributePolicyInvoke(ctx, m, input)
+	case "ListAttributePolicies":
+		return listAttributePoliciesInvoke(ctx, m, input)
+	case "RemoveAttributePolicy":
+		return removeAttributePolicyInvoke(ctx, m, input)
+	case "CheckAttributes":
+		return checkAttributesInvoke(ctx, m, input)
 	default:
 		return nil, fmt.Errorf("authz casbin method %q is not supported", method)
 	}

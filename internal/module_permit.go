@@ -118,12 +118,48 @@ func (m *PermitModule) CheckScope(ctx context.Context, check ScopeCheck) (ScopeC
 	return m.scopeProvider.CheckScope(ctx, check)
 }
 
+func (m *PermitModule) DeclareAttributes(context.Context, []*contracts.AttributeDeclaration) error {
+	return errUnsupportedABAC
+}
+
+func (m *PermitModule) UpsertAttributePolicy(context.Context, AttributePolicy) error {
+	return errUnsupportedABAC
+}
+
+func (m *PermitModule) ListAttributePolicies(context.Context, AttributePolicyFilter) ([]AttributePolicy, error) {
+	return nil, errUnsupportedABAC
+}
+
+func (m *PermitModule) RemoveAttributePolicy(context.Context, AttributePolicyFilter) error {
+	return errUnsupportedABAC
+}
+
+func (m *PermitModule) CheckAttributes(_ context.Context, check AttributeCheck) (AttributeCheckResult, error) {
+	return AttributeCheckResult{
+		Subject:  check.Subject,
+		Context:  check.Context,
+		Resource: check.Resource,
+		Action:   check.Action,
+		Reason:   errUnsupportedABAC.Error(),
+	}, errUnsupportedABAC
+}
+
 func (m *PermitModule) InvokeMethod(method string, input map[string]any) (map[string]any, error) {
 	switch method {
 	case "GetCapabilities":
 		return providerCapabilitiesInvoke(m.name, "permit", m, input, false)
 	case "RequireCapabilities":
 		return providerCapabilitiesInvoke(m.name, "permit", m, input, true)
+	case "DeclareAttributes":
+		return declareAttributesInvoke(context.Background(), m, input)
+	case "UpsertAttributePolicy":
+		return upsertAttributePolicyInvoke(context.Background(), m, input)
+	case "ListAttributePolicies":
+		return listAttributePoliciesInvoke(context.Background(), m, input)
+	case "RemoveAttributePolicy":
+		return removeAttributePolicyInvoke(context.Background(), m, input)
+	case "CheckAttributes":
+		return checkAttributesInvoke(context.Background(), m, input)
 	default:
 		return nil, fmt.Errorf("permit provider method %q is not supported", method)
 	}

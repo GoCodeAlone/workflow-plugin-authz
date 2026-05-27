@@ -333,6 +333,95 @@ message AttributeDeclaration {
   string category = 10;
 }
 
+message AttributeCondition {
+  string target = 1;
+  string attribute = 2;
+  string operator = 3;
+  repeated string values = 4;
+}
+
+message AttributePolicy {
+  string id = 1;
+  string context = 2;
+  string resource = 3;
+  string action = 4;
+  string effect = 5;
+  repeated AttributeCondition conditions = 6;
+  string description = 7;
+  string owner_plugin = 8;
+  string owner_module = 9;
+}
+
+message AttributePolicyFilter {
+  string id = 1;
+  string context = 2;
+  string resource = 3;
+  string action = 4;
+  string owner_plugin = 5;
+  string owner_module = 6;
+}
+
+message AttributeCheckInput {
+  string subject = 1;
+  string context = 2;
+  string resource = 3;
+  string action = 4;
+  google.protobuf.Struct subject_attributes = 5;
+  google.protobuf.Struct resource_attributes = 6;
+  google.protobuf.Struct environment_attributes = 7;
+}
+
+message AttributeCheckOutput {
+  bool allowed = 1;
+  string subject = 2;
+  string context = 3;
+  string resource = 4;
+  string action = 5;
+  string matched_policy_id = 6;
+  string reason = 7;
+  string error = 100;
+}
+
+message DeclareAttributesInput {
+  repeated AttributeDeclaration attributes = 1;
+  string owner_plugin = 2;
+  string owner_module = 3;
+}
+
+message DeclareAttributesOutput {
+  int32 registered = 1;
+  repeated AttributeDeclaration attributes = 2;
+  string error = 100;
+}
+
+message UpsertAttributePolicyInput {
+  AttributePolicy policy = 1;
+}
+
+message UpsertAttributePolicyOutput {
+  bool changed = 1;
+  AttributePolicy policy = 2;
+  string error = 100;
+}
+
+message ListAttributePoliciesInput {
+  AttributePolicyFilter filter = 1;
+}
+
+message ListAttributePoliciesOutput {
+  repeated AttributePolicy policies = 1;
+  string error = 100;
+}
+
+message RemoveAttributePolicyInput {
+  AttributePolicyFilter filter = 1;
+}
+
+message RemoveAttributePolicyOutput {
+  bool changed = 1;
+  string error = 100;
+}
+
 message RelationDeclaration {
   string name = 1;
   string context = 2;
