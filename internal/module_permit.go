@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/GoCodeAlone/workflow-plugin-authz/internal/contracts"
 )
 
 const (
@@ -13,12 +15,13 @@ const (
 )
 
 // PermitModule implements sdk.ModuleInstance for the permit.provider module type.
-// It creates and registers a permitClient backed by direct HTTP calls to the
-// Permit.io management API and PDP API.
+// Scope-role APIs use the official Permit.io Go SDK. Legacy step helpers still
+// use the old registered client until those unused step contracts are removed.
 type PermitModule struct {
-	name   string
-	config permitModuleConfig
-	client *permitClient
+	name          string
+	config        permitModuleConfig
+	client        *permitClient
+	scopeProvider *permitScopeProvider
 }
 
 // permitModuleConfig holds parsed configuration for a permit.provider module.
@@ -64,6 +67,7 @@ func newPermitModule(name string, config map[string]any) (*PermitModule, error) 
 
 // Init creates the HTTP client and registers it in the global permit registry.
 func (m *PermitModule) Init() error {
+	m.scopeProvider = newPermitScopeProvider(m.name, newPermitSDKScopeClient(m.config))
 	m.client = &permitClient{
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
@@ -89,3 +93,104 @@ func (m *PermitModule) Stop(_ context.Context) error {
 
 // Name returns the module name.
 func (m *PermitModule) Name() string { return m.name }
+
+func (m *PermitModule) DeclareScopes(ctx context.Context, scopes []*contracts.ScopeDeclaration) error {
+	return m.scopeProvider.DeclareScopes(ctx, scopes)
+}
+
+func (m *PermitModule) UpsertRole(ctx context.Context, grant RoleScopeGrant) error {
+	return m.scopeProvider.UpsertRole(ctx, grant)
+}
+
+func (m *PermitModule) AssignRole(ctx context.Context, assignment SubjectRoleAssignment) error {
+	return m.scopeProvider.AssignRole(ctx, assignment)
+}
+
+func (m *PermitModule) ListAssignments(ctx context.Context, filter AssignmentFilter) ([]SubjectRoleAssignment, error) {
+	return m.scopeProvider.ListAssignments(ctx, filter)
+}
+
+func (m *PermitModule) RemoveAssignment(ctx context.Context, assignment SubjectRoleAssignment) error {
+	return m.scopeProvider.RemoveAssignment(ctx, assignment)
+}
+
+func (m *PermitModule) CheckScope(ctx context.Context, check ScopeCheck) (ScopeCheckResult, error) {
+	return m.scopeProvider.CheckScope(ctx, check)
+}
+
+func (m *PermitModule) DeclareAttributes(context.Context, []*contracts.AttributeDeclaration) error {
+	return errUnsupportedABAC
+}
+
+func (m *PermitModule) UpsertAttributePolicy(context.Context, AttributePolicy) error {
+	return errUnsupportedABAC
+}
+
+func (m *PermitModule) ListAttributePolicies(context.Context, AttributePolicyFilter) ([]AttributePolicy, error) {
+	return nil, errUnsupportedABAC
+}
+
+func (m *PermitModule) RemoveAttributePolicy(context.Context, AttributePolicyFilter) error {
+	return errUnsupportedABAC
+}
+
+func (m *PermitModule) CheckAttributes(_ context.Context, check AttributeCheck) (AttributeCheckResult, error) {
+	return AttributeCheckResult{
+		Subject:  check.Subject,
+		Context:  check.Context,
+		Resource: check.Resource,
+		Action:   check.Action,
+		Reason:   errUnsupportedABAC.Error(),
+	}, errUnsupportedABAC
+}
+
+func (m *PermitModule) UpsertRelationTuple(context.Context, RelationTuple) error {
+	return errUnsupportedReBAC
+}
+
+func (m *PermitModule) RemoveRelationTuple(context.Context, RelationTuple) error {
+	return errUnsupportedReBAC
+}
+
+func (m *PermitModule) ListRelationTuples(context.Context, RelationTupleFilter) ([]RelationTuple, error) {
+	return nil, errUnsupportedReBAC
+}
+
+func (m *PermitModule) CheckRelation(_ context.Context, check RelationCheck) (RelationCheckResult, error) {
+	return RelationCheckResult{
+		Subject:  check.Subject,
+		Relation: check.Relation,
+		Object:   check.Object,
+		Context:  check.Context,
+		Reason:   errUnsupportedReBAC.Error(),
+	}, errUnsupportedReBAC
+}
+
+func (m *PermitModule) InvokeMethod(method string, input map[string]any) (map[string]any, error) {
+	switch method {
+	case "GetCapabilities":
+		return providerCapabilitiesInvoke(m.name, "permit", m, input, false)
+	case "RequireCapabilities":
+		return providerCapabilitiesInvoke(m.name, "permit", m, input, true)
+	case "DeclareAttributes":
+		return declareAttributesInvoke(context.Background(), m, input)
+	case "UpsertAttributePolicy":
+		return upsertAttributePolicyInvoke(context.Background(), m, input)
+	case "ListAttributePolicies":
+		return listAttributePoliciesInvoke(context.Background(), m, input)
+	case "RemoveAttributePolicy":
+		return removeAttributePolicyInvoke(context.Background(), m, input)
+	case "CheckAttributes":
+		return checkAttributesInvoke(context.Background(), m, input)
+	case "UpsertRelationTuple":
+		return upsertRelationTupleInvoke(context.Background(), m, input)
+	case "ListRelationTuples":
+		return listRelationTuplesInvoke(context.Background(), m, input)
+	case "RemoveRelationTuple":
+		return removeRelationTupleInvoke(context.Background(), m, input)
+	case "CheckRelation":
+		return checkRelationInvoke(context.Background(), m, input)
+	default:
+		return nil, fmt.Errorf("permit provider method %q is not supported", method)
+	}
+}

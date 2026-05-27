@@ -9,6 +9,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/GoCodeAlone/workflow-plugin-authz/internal/contracts"
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/model"
 	"github.com/casbin/casbin/v2/persist"
@@ -23,10 +24,13 @@ import (
 // loaded from inline config (model text + policy rows + role assignments),
 // a file adapter, or a GORM adapter backed by postgres/mysql/sqlite3.
 type CasbinModule struct {
-	name     string
-	config   casbinConfig
-	mu       sync.RWMutex
-	enforcer *casbin.Enforcer
+	name       string
+	config     casbinConfig
+	mu         sync.RWMutex
+	enforcer   *casbin.Enforcer
+	scopeRoles *scopeRoleStore
+	abac       *attributePolicyStore
+	relations  *relationTupleStore
 
 	// polling watcher fields
 	stopCh chan struct{}
@@ -88,8 +92,11 @@ func newCasbinModule(name string, config map[string]any) (*CasbinModule, error) 
 		return nil, fmt.Errorf("authz.casbin %q: %w", name, err)
 	}
 	return &CasbinModule{
-		name:   name,
-		config: cfg,
+		name:       name,
+		config:     cfg,
+		scopeRoles: newScopeRoleStore("casbin"),
+		abac:       newAttributePolicyStore("casbin", nil),
+		relations:  newRelationTupleStore(),
 	}, nil
 }
 
@@ -462,6 +469,198 @@ func toInterfaceSlice(ss []string) []interface{} {
 
 // Name returns the module name.
 func (m *CasbinModule) Name() string { return m.name }
+
+func (m *CasbinModule) scopeRoleStore() *scopeRoleStore {
+	if m.scopeRoles == nil {
+		m.scopeRoles = newScopeRoleStore("casbin")
+	}
+	return m.scopeRoles
+}
+
+func (m *CasbinModule) DeclareScopes(ctx context.Context, scopes []*contracts.ScopeDeclaration) error {
+	return m.scopeRoleStore().DeclareScopes(ctx, scopes)
+}
+
+func (m *CasbinModule) UpsertRole(ctx context.Context, grant RoleScopeGrant) error {
+	return m.scopeRoleStore().UpsertRole(ctx, grant)
+}
+
+func (m *CasbinModule) AssignRole(ctx context.Context, assignment SubjectRoleAssignment) error {
+	return m.scopeRoleStore().AssignRole(ctx, assignment)
+}
+
+func (m *CasbinModule) ListAssignments(ctx context.Context, filter AssignmentFilter) ([]SubjectRoleAssignment, error) {
+	return m.scopeRoleStore().ListAssignments(ctx, filter)
+}
+
+func (m *CasbinModule) RemoveAssignment(ctx context.Context, assignment SubjectRoleAssignment) error {
+	return m.scopeRoleStore().RemoveAssignment(ctx, assignment)
+}
+
+func (m *CasbinModule) CheckScope(ctx context.Context, check ScopeCheck) (ScopeCheckResult, error) {
+	return m.scopeRoleStore().CheckScope(ctx, check)
+}
+
+func (m *CasbinModule) DeclareAttributes(ctx context.Context, attrs []*contracts.AttributeDeclaration) error {
+	if !m.SupportsCapability(CapabilityABAC) {
+		return errUnsupportedABAC
+	}
+	return m.abac.DeclareAttributes(ctx, attrs)
+}
+
+func (m *CasbinModule) UpsertAttributePolicy(ctx context.Context, policy AttributePolicy) error {
+	if !m.SupportsCapability(CapabilityABAC) {
+		return errUnsupportedABAC
+	}
+	return m.abac.UpsertAttributePolicy(ctx, policy)
+}
+
+func (m *CasbinModule) ListAttributePolicies(ctx context.Context, filter AttributePolicyFilter) ([]AttributePolicy, error) {
+	if !m.SupportsCapability(CapabilityABAC) {
+		return nil, errUnsupportedABAC
+	}
+	return m.abac.ListAttributePolicies(ctx, filter)
+}
+
+func (m *CasbinModule) RemoveAttributePolicy(ctx context.Context, filter AttributePolicyFilter) error {
+	if !m.SupportsCapability(CapabilityABAC) {
+		return errUnsupportedABAC
+	}
+	return m.abac.RemoveAttributePolicy(ctx, filter)
+}
+
+func (m *CasbinModule) CheckAttributes(ctx context.Context, check AttributeCheck) (AttributeCheckResult, error) {
+	if !m.SupportsCapability(CapabilityABAC) {
+		return AttributeCheckResult{}, errUnsupportedABAC
+	}
+	return m.abac.CheckAttributes(ctx, check)
+}
+
+func (m *CasbinModule) UpsertRelationTuple(_ context.Context, tuple RelationTuple) error {
+	if !m.SupportsCapability(CapabilityReBAC) {
+		return errUnsupportedReBAC
+	}
+	tuple = normalizeRelationTuple(tuple)
+	if err := validateRelationTuple(tuple); err != nil {
+		return err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.enforcer == nil {
+		return fmt.Errorf("casbin enforcer is not initialized")
+	}
+	if _, err := m.enforcer.AddNamedGroupingPolicy("g2", tuple.Subject, tuple.Relation, tuple.Object); err != nil {
+		return err
+	}
+	return m.relations.Upsert(tuple)
+}
+
+func (m *CasbinModule) RemoveRelationTuple(_ context.Context, tuple RelationTuple) error {
+	if !m.SupportsCapability(CapabilityReBAC) {
+		return errUnsupportedReBAC
+	}
+	tuple = normalizeRelationTuple(tuple)
+	if err := validateRelationTuple(tuple); err != nil {
+		return err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.enforcer == nil {
+		return fmt.Errorf("casbin enforcer is not initialized")
+	}
+	if _, err := m.enforcer.RemoveNamedGroupingPolicy("g2", tuple.Subject, tuple.Relation, tuple.Object); err != nil {
+		return err
+	}
+	return m.relations.Remove(tuple)
+}
+
+func (m *CasbinModule) ListRelationTuples(_ context.Context, filter RelationTupleFilter) ([]RelationTuple, error) {
+	if !m.SupportsCapability(CapabilityReBAC) {
+		return nil, errUnsupportedReBAC
+	}
+	return m.relations.List(filter), nil
+}
+
+func (m *CasbinModule) CheckRelation(ctx context.Context, check RelationCheck) (RelationCheckResult, error) {
+	if !m.SupportsCapability(CapabilityReBAC) {
+		return RelationCheckResult{}, errUnsupportedReBAC
+	}
+	tuples, err := m.ListRelationTuples(ctx, RelationTupleFilter{Subject: check.Subject, Relation: check.Relation, Object: check.Object, Context: check.Context})
+	if err != nil {
+		return RelationCheckResult{}, err
+	}
+	result := RelationCheckResult{Subject: check.Subject, Relation: check.Relation, Object: check.Object, Context: check.Context}
+	result.Allowed = len(tuples) > 0
+	if !result.Allowed {
+		result.Reason = "relation tuple not found"
+	}
+	return result, nil
+}
+
+func (m *CasbinModule) InvokeMethod(method string, input map[string]any) (map[string]any, error) {
+	ctx := context.Background()
+	switch method {
+	case "DeclareScopes":
+		scopes := scopeDeclarationsFromAny(input["scopes"], stringValue(input["owner_plugin"]), stringValue(input["owner_module"]))
+		if err := m.DeclareScopes(ctx, scopes); err != nil {
+			return nil, err
+		}
+		return map[string]any{"registered": len(scopes), "scopes": scopeDeclarationsToMaps(scopes)}, nil
+	case "UpsertRole":
+		grant := roleScopeGrantFromMap(mapValue(input["grant"]))
+		if err := m.UpsertRole(ctx, grant); err != nil {
+			return nil, err
+		}
+		return map[string]any{"changed": true, "grant": roleScopeGrantToMap(grant)}, nil
+	case "AssignRole":
+		assignment := subjectRoleAssignmentFromMap(mapValue(input["assignment"]))
+		if err := m.AssignRole(ctx, assignment); err != nil {
+			return nil, err
+		}
+		return map[string]any{"changed": true, "assignment": subjectRoleAssignmentToMap(assignment)}, nil
+	case "ListAssignments":
+		assignments, err := m.ListAssignments(ctx, assignmentFilterFromMap(mapValue(input["filter"])))
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"assignments": subjectRoleAssignmentsToMaps(assignments)}, nil
+	case "RemoveAssignment":
+		if err := m.RemoveAssignment(ctx, subjectRoleAssignmentFromMap(mapValue(input["assignment"]))); err != nil {
+			return nil, err
+		}
+		return map[string]any{"changed": true}, nil
+	case "CheckScope":
+		result, err := m.CheckScope(ctx, scopeCheckFromMap(input))
+		if err != nil {
+			return nil, err
+		}
+		return scopeCheckResultToMap(result), nil
+	case "GetCapabilities":
+		return providerCapabilitiesInvoke(m.name, "casbin", m, input, false)
+	case "RequireCapabilities":
+		return providerCapabilitiesInvoke(m.name, "casbin", m, input, true)
+	case "DeclareAttributes":
+		return declareAttributesInvoke(ctx, m, input)
+	case "UpsertAttributePolicy":
+		return upsertAttributePolicyInvoke(ctx, m, input)
+	case "ListAttributePolicies":
+		return listAttributePoliciesInvoke(ctx, m, input)
+	case "RemoveAttributePolicy":
+		return removeAttributePolicyInvoke(ctx, m, input)
+	case "CheckAttributes":
+		return checkAttributesInvoke(ctx, m, input)
+	case "UpsertRelationTuple":
+		return upsertRelationTupleInvoke(ctx, m, input)
+	case "ListRelationTuples":
+		return listRelationTuplesInvoke(ctx, m, input)
+	case "RemoveRelationTuple":
+		return removeRelationTupleInvoke(ctx, m, input)
+	case "CheckRelation":
+		return checkRelationInvoke(ctx, m, input)
+	default:
+		return nil, fmt.Errorf("authz casbin method %q is not supported", method)
+	}
+}
 
 // --- in-memory Casbin adapter ---
 

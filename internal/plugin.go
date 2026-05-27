@@ -21,9 +21,11 @@ var Version = "0.0.0"
 // authzPlugin implements sdk.PluginProvider, sdk.ModuleProvider, and sdk.StepProvider.
 type authzPlugin struct{}
 
-var moduleTypes = []string{"authz.casbin", "permit.provider"}
+var moduleTypes = []string{"authz.casbin", "permit.provider", "authz.keto", "authz.scope_catalog"}
 
 var casbinStepTypes = []string{
+	"step.authz_check",
+	"step.authz_require_capabilities",
 	"step.authz_check_casbin",
 	"step.authz_add_policy",
 	"step.authz_remove_policy",
@@ -82,7 +84,17 @@ func (p *authzPlugin) CreateModule(typeName, name string, config map[string]any)
 		if err != nil {
 			return nil, err
 		}
+		RegisterAuthzProvider(name, m)
 		return m, nil
+	case "authz.keto":
+		m, err := newKetoModule(name, config)
+		if err != nil {
+			return nil, err
+		}
+		RegisterAuthzProvider(name, m)
+		return m, nil
+	case "authz.scope_catalog":
+		return newScopeCatalogModule(name, config), nil
 	default:
 		return nil, fmt.Errorf("authz plugin: unknown module type %q", typeName)
 	}
@@ -103,7 +115,27 @@ func (p *authzPlugin) CreateTypedModule(typeName, name string, config *anypb.Any
 		return factory.CreateTypedModule(typeName, name, config)
 	case "permit.provider":
 		factory := sdk.NewTypedModuleFactory(typeName, &contracts.PermitModuleConfig{}, func(name string, cfg *contracts.PermitModuleConfig) (sdk.ModuleInstance, error) {
-			return newPermitModule(name, permitModuleConfigToMap(cfg))
+			m, err := newPermitModule(name, permitModuleConfigToMap(cfg))
+			if err != nil {
+				return nil, err
+			}
+			RegisterAuthzProvider(name, m)
+			return m, nil
+		})
+		return factory.CreateTypedModule(typeName, name, config)
+	case "authz.keto":
+		factory := sdk.NewTypedModuleFactory(typeName, &contracts.KetoModuleConfig{}, func(name string, cfg *contracts.KetoModuleConfig) (sdk.ModuleInstance, error) {
+			m, err := newKetoModule(name, ketoModuleConfigToMap(cfg))
+			if err != nil {
+				return nil, err
+			}
+			RegisterAuthzProvider(name, m)
+			return m, nil
+		})
+		return factory.CreateTypedModule(typeName, name, config)
+	case "authz.scope_catalog":
+		factory := sdk.NewTypedModuleFactory(typeName, &contracts.ScopeCatalogConfig{}, func(name string, cfg *contracts.ScopeCatalogConfig) (sdk.ModuleInstance, error) {
+			return newScopeCatalogModule(name, scopeCatalogConfigToMap(cfg)), nil
 		})
 		return factory.CreateTypedModule(typeName, name, config)
 	default:
@@ -125,6 +157,10 @@ func (p *authzPlugin) TypedStepTypes() []string {
 // CreateStep creates a step instance of the given type.
 func (p *authzPlugin) CreateStep(typeName, name string, config map[string]any) (sdk.StepInstance, error) {
 	switch typeName {
+	case "step.authz_check":
+		return newAuthzDecisionStep(name, config)
+	case "step.authz_require_capabilities":
+		return newAuthzRequireCapabilitiesStep(name, config)
 	case "step.authz_check_casbin":
 		return newAuthzCheckStep(name, config)
 	case "step.authz_add_policy":
@@ -170,6 +206,10 @@ func (p *authzPlugin) CreateStep(typeName, name string, config map[string]any) (
 // CreateTypedStep creates a protobuf-backed step instance.
 func (p *authzPlugin) CreateTypedStep(typeName, name string, config *anypb.Any) (sdk.StepInstance, error) {
 	switch typeName {
+	case "step.authz_check":
+		return sdk.NewTypedStepFactory(typeName, &contracts.AuthorizationDecisionConfig{}, &contracts.AuthorizationDecisionInput{}, typedAuthzDecision(globalRegistry)).CreateTypedStep(typeName, name, config)
+	case "step.authz_require_capabilities":
+		return sdk.NewTypedStepFactory(typeName, &contracts.RequireCapabilitiesConfig{}, &contracts.RequireCapabilitiesInput{}, typedAuthzRequireCapabilities(globalRegistry)).CreateTypedStep(typeName, name, config)
 	case "step.authz_check_casbin":
 		return sdk.NewTypedStepFactory(typeName, &contracts.AuthzCheckConfig{}, &contracts.AuthzCheckInput{}, typedAuthzCheck(globalRegistry)).CreateTypedStep(typeName, name, config)
 	case "step.authz_add_policy":
@@ -213,6 +253,10 @@ func (p *authzPlugin) ContractRegistry() *pb.ContractRegistry {
 	contractsList := []*pb.ContractDescriptor{
 		moduleContract("authz.casbin", "CasbinModuleConfig"),
 		moduleContract("permit.provider", "PermitModuleConfig"),
+		moduleContract("authz.keto", "KetoModuleConfig"),
+		moduleContract("authz.scope_catalog", "ScopeCatalogConfig"),
+		stepContract("step.authz_check", "AuthorizationDecisionConfig", "AuthorizationDecisionInput", "AuthorizationDecisionOutput"),
+		stepContract("step.authz_require_capabilities", "RequireCapabilitiesConfig", "RequireCapabilitiesInput", "ProviderCapabilitiesOutput"),
 		stepContract("step.authz_check_casbin", "AuthzCheckConfig", "AuthzCheckInput", "AuthzCheckOutput"),
 		stepContract("step.authz_add_policy", "PolicyRuleConfig", "PolicyRuleInput", "PolicyRuleOutput"),
 		stepContract("step.authz_remove_policy", "PolicyRuleConfig", "PolicyRuleInput", "PolicyRuleOutput"),
@@ -228,6 +272,29 @@ func (p *authzPlugin) ContractRegistry() *pb.ContractRegistry {
 		stepContract("step.authz_rebac_remove_relation", "RelationConfig", "RelationInput", "RelationOutput"),
 		stepContract("step.authz_rebac_check", "SubjectObjectActionConfig", "SubjectObjectActionInput", "SubjectObjectActionOutput"),
 		stepContract("step.authz_rebac_list_relations", "ListConfig", "ListInput", "GenericStepOutput"),
+		serviceContract("authz.scope_catalog", "ScopeCatalog", "RegisterScopes", "RegisterScopesInput", "RegisterScopesOutput"),
+		serviceContract("authz.scope_catalog", "ScopeCatalog", "ListScopes", "ListScopesInput", "ListScopesOutput"),
+		serviceContract("authz.scope_catalog", "ScopeCatalog", "ResolveSubjectScopes", "ResolveSubjectScopesInput", "ResolveSubjectScopesOutput"),
+		serviceContract("authz.scope_catalog", "ScopeCatalog", "RegisterDeclarations", "RegisterDeclarationsInput", "RegisterDeclarationsOutput"),
+		serviceContract("authz.scope_catalog", "ScopeCatalog", "ListDeclarations", "ListDeclarationsInput", "ListDeclarationsOutput"),
+		serviceContract("authz.scope_catalog", "ScopeCatalog", "ResolveProjectionInputs", "ResolveProjectionInputsInput", "ResolveProjectionInputsOutput"),
+		serviceContract("authz.casbin", "ProviderCapabilities", "GetCapabilities", "ProviderCapabilitiesInput", "ProviderCapabilitiesOutput"),
+		serviceContract("authz.casbin", "ProviderCapabilities", "RequireCapabilities", "ProviderCapabilitiesInput", "ProviderCapabilitiesOutput"),
+		serviceContract("authz.casbin", "AttributePolicyProvider", "DeclareAttributes", "DeclareAttributesInput", "DeclareAttributesOutput"),
+		serviceContract("authz.casbin", "AttributePolicyProvider", "UpsertAttributePolicy", "UpsertAttributePolicyInput", "UpsertAttributePolicyOutput"),
+		serviceContract("authz.casbin", "AttributePolicyProvider", "ListAttributePolicies", "ListAttributePoliciesInput", "ListAttributePoliciesOutput"),
+		serviceContract("authz.casbin", "AttributePolicyProvider", "RemoveAttributePolicy", "RemoveAttributePolicyInput", "RemoveAttributePolicyOutput"),
+		serviceContract("authz.casbin", "AttributePolicyProvider", "CheckAttributes", "AttributeCheckInput", "AttributeCheckOutput"),
+		serviceContract("authz.casbin", "RelationshipProvider", "UpsertRelationTuple", "UpsertRelationTupleInput", "UpsertRelationTupleOutput"),
+		serviceContract("authz.casbin", "RelationshipProvider", "ListRelationTuples", "ListRelationTuplesInput", "ListRelationTuplesOutput"),
+		serviceContract("authz.casbin", "RelationshipProvider", "RemoveRelationTuple", "RemoveRelationTupleInput", "RemoveRelationTupleOutput"),
+		serviceContract("authz.casbin", "RelationshipProvider", "CheckRelation", "RelationCheckInput", "RelationCheckOutput"),
+		serviceContract("authz.casbin", "ScopeRoleProvider", "DeclareScopes", "RegisterScopesInput", "RegisterScopesOutput"),
+		serviceContract("authz.casbin", "ScopeRoleProvider", "UpsertRole", "UpsertRoleInput", "UpsertRoleOutput"),
+		serviceContract("authz.casbin", "ScopeRoleProvider", "AssignRole", "AssignRoleInput", "AssignRoleOutput"),
+		serviceContract("authz.casbin", "ScopeRoleProvider", "ListAssignments", "ListRoleAssignmentsInput", "ListRoleAssignmentsOutput"),
+		serviceContract("authz.casbin", "ScopeRoleProvider", "RemoveAssignment", "RemoveRoleAssignmentInput", "RemoveRoleAssignmentOutput"),
+		serviceContract("authz.casbin", "ScopeRoleProvider", "CheckScope", "ScopeCheckInput", "ScopeCheckOutput"),
 	}
 	for _, stepType := range permitStepTypes() {
 		contractsList = append(contractsList, stepContract(stepType, "PermitStepConfig", "PermitStepInput", "GenericStepOutput"))
@@ -257,6 +324,19 @@ func stepContract(stepType, configMessage, inputMessage, outputMessage string) *
 		Kind:          pb.ContractKind_CONTRACT_KIND_STEP,
 		StepType:      stepType,
 		ConfigMessage: pkg + configMessage,
+		InputMessage:  pkg + inputMessage,
+		OutputMessage: pkg + outputMessage,
+		Mode:          pb.ContractMode_CONTRACT_MODE_STRICT_PROTO,
+	}
+}
+
+func serviceContract(moduleType, serviceName, method, inputMessage, outputMessage string) *pb.ContractDescriptor {
+	const pkg = "workflow.plugins.authz.v1."
+	return &pb.ContractDescriptor{
+		Kind:          pb.ContractKind_CONTRACT_KIND_SERVICE,
+		ModuleType:    moduleType,
+		ServiceName:   serviceName,
+		Method:        method,
 		InputMessage:  pkg + inputMessage,
 		OutputMessage: pkg + outputMessage,
 		Mode:          pb.ContractMode_CONTRACT_MODE_STRICT_PROTO,

@@ -42,6 +42,11 @@ message PermitModuleConfig {
   string environment = 5;
 }
 
+message KetoModuleConfig {
+  string read_url = 1;
+  string write_url = 2;
+}
+
 message ExtraField {
   string key = 1;
   string value = 2;
@@ -124,7 +129,108 @@ message CapabilitiesOutput {
   string module = 1;
   string provider = 2;
   repeated string capabilities = 3;
+  repeated CapabilityDescriptor descriptors = 4;
+  string health = 5;
+  repeated string missing_requirements = 6;
   string error = 100;
+}
+
+enum AuthzMode {
+  AUTHZ_MODE_UNSPECIFIED = 0;
+  AUTHZ_MODE_RBAC = 1;
+  AUTHZ_MODE_ABAC = 2;
+  AUTHZ_MODE_REBAC = 3;
+  AUTHZ_MODE_ACL = 4;
+}
+
+enum AuthzOperation {
+  AUTHZ_OPERATION_UNSPECIFIED = 0;
+  AUTHZ_OPERATION_CHECK = 1;
+  AUTHZ_OPERATION_MANAGE_ROLES = 2;
+  AUTHZ_OPERATION_MANAGE_POLICIES = 3;
+  AUTHZ_OPERATION_MANAGE_RELATIONS = 4;
+  AUTHZ_OPERATION_LIST = 5;
+}
+
+message CapabilityDescriptor {
+  AuthzMode mode = 1;
+  repeated AuthzOperation operations = 2;
+  bool configured = 3;
+  string source = 4;
+  string health = 5;
+  string unsupported_reason = 6;
+}
+
+message CapabilityRequirement {
+  AuthzMode mode = 1;
+  repeated AuthzOperation operations = 2;
+}
+
+message ProviderCapabilitiesInput {
+  string module = 1;
+  string provider = 2;
+  repeated CapabilityRequirement requirements = 3;
+}
+
+message ProviderCapabilitiesOutput {
+  string module = 1;
+  string provider = 2;
+  repeated string capabilities = 3;
+  repeated CapabilityDescriptor descriptors = 4;
+  string health = 5;
+  repeated string missing_requirements = 6;
+  string error = 100;
+}
+
+message AuthorizationDecisionConfig {
+  string module = 1;
+  string provider = 2;
+  AuthzMode mode = 3;
+  string subject = 4;
+  string context = 5;
+  string resource = 6;
+  string action = 7;
+  string scope = 8;
+  string relation = 9;
+  bool explain = 10;
+}
+
+message AuthorizationDecisionInput {
+  string module = 1;
+  string provider = 2;
+  AuthzMode mode = 3;
+  string subject = 4;
+  string context = 5;
+  string resource = 6;
+  string action = 7;
+  string scope = 8;
+  string relation = 9;
+  google.protobuf.Struct subject_attributes = 10;
+  google.protobuf.Struct resource_attributes = 11;
+  google.protobuf.Struct environment_attributes = 12;
+  bool explain = 13;
+}
+
+message AuthorizationDecisionOutput {
+  bool allowed = 1;
+  AuthzMode mode = 2;
+  string subject = 3;
+  string context = 4;
+  string reason = 5;
+  string explain = 6;
+  string error = 100;
+}
+
+message RequireCapabilitiesConfig {
+  string module = 1;
+  string provider = 2;
+  repeated CapabilityRequirement requirements = 3;
+}
+
+message RequireCapabilitiesInput {
+  string module = 1;
+  string provider = 2;
+  repeated CapabilityRequirement requirements = 3;
 }
 
 message SubjectObjectActionConfig {
@@ -197,4 +303,401 @@ message PermitStepConfig {
 message PermitStepInput {
   string module = 1;
   google.protobuf.Struct values = 2;
+}
+
+message ScopeDeclaration {
+  string name = 1;
+  string context = 2;
+  string resource = 3;
+  repeated string actions = 4;
+  string description = 5;
+  string owner_plugin = 6;
+  string owner_module = 7;
+  string category = 8;
+}
+
+message ScopeCatalogConfig {
+  repeated ScopeDeclaration scopes = 1;
+  bool allow_runtime_registration = 2;
+  AuthzDeclarationSet declarations = 3;
+}
+
+message RegisterScopesInput {
+  repeated ScopeDeclaration scopes = 1;
+  string owner_plugin = 2;
+  string owner_module = 3;
+}
+
+message RegisterScopesOutput {
+  int32 registered = 1;
+  repeated ScopeDeclaration scopes = 2;
+  string error = 100;
+}
+
+message ListScopesInput {
+  string context = 1;
+  string owner_plugin = 2;
+  string owner_module = 3;
+}
+
+message ListScopesOutput {
+  repeated ScopeDeclaration scopes = 1;
+  string error = 100;
+}
+
+message ResourceDeclaration {
+  string name = 1;
+  string context = 2;
+  string display_name = 3;
+  string description = 4;
+  string owner_plugin = 5;
+  string owner_module = 6;
+  string category = 7;
+  string lookup_source_id = 8;
+}
+
+message ActionDeclaration {
+  string name = 1;
+  string context = 2;
+  string resource = 3;
+  string description = 4;
+  string owner_plugin = 5;
+  string owner_module = 6;
+  string category = 7;
+}
+
+message AttributeValue {
+  string value = 1;
+  string label = 2;
+}
+
+message AttributeDeclaration {
+  string name = 1;
+  string context = 2;
+  string target = 3;
+  string data_type = 4;
+  repeated AttributeValue allowed_values = 5;
+  string lookup_source_id = 6;
+  string description = 7;
+  string owner_plugin = 8;
+  string owner_module = 9;
+  string category = 10;
+}
+
+message AttributeCondition {
+  string target = 1;
+  string attribute = 2;
+  string operator = 3;
+  repeated string values = 4;
+}
+
+message AttributePolicy {
+  string id = 1;
+  string context = 2;
+  string resource = 3;
+  string action = 4;
+  string effect = 5;
+  repeated AttributeCondition conditions = 6;
+  string description = 7;
+  string owner_plugin = 8;
+  string owner_module = 9;
+}
+
+message AttributePolicyFilter {
+  string id = 1;
+  string context = 2;
+  string resource = 3;
+  string action = 4;
+  string owner_plugin = 5;
+  string owner_module = 6;
+}
+
+message AttributeCheckInput {
+  string subject = 1;
+  string context = 2;
+  string resource = 3;
+  string action = 4;
+  google.protobuf.Struct subject_attributes = 5;
+  google.protobuf.Struct resource_attributes = 6;
+  google.protobuf.Struct environment_attributes = 7;
+}
+
+message AttributeCheckOutput {
+  bool allowed = 1;
+  string subject = 2;
+  string context = 3;
+  string resource = 4;
+  string action = 5;
+  string matched_policy_id = 6;
+  string reason = 7;
+  string error = 100;
+}
+
+message DeclareAttributesInput {
+  repeated AttributeDeclaration attributes = 1;
+  string owner_plugin = 2;
+  string owner_module = 3;
+}
+
+message DeclareAttributesOutput {
+  int32 registered = 1;
+  repeated AttributeDeclaration attributes = 2;
+  string error = 100;
+}
+
+message UpsertAttributePolicyInput {
+  AttributePolicy policy = 1;
+}
+
+message UpsertAttributePolicyOutput {
+  bool changed = 1;
+  AttributePolicy policy = 2;
+  string error = 100;
+}
+
+message ListAttributePoliciesInput {
+  AttributePolicyFilter filter = 1;
+}
+
+message ListAttributePoliciesOutput {
+  repeated AttributePolicy policies = 1;
+  string error = 100;
+}
+
+message RemoveAttributePolicyInput {
+  AttributePolicyFilter filter = 1;
+}
+
+message RemoveAttributePolicyOutput {
+  bool changed = 1;
+  string error = 100;
+}
+
+message RelationDeclaration {
+  string name = 1;
+  string context = 2;
+  string subject_type = 3;
+  string object_type = 4;
+  string description = 5;
+  string owner_plugin = 6;
+  string owner_module = 7;
+  string category = 8;
+}
+
+message RelationTuple {
+  string subject = 1;
+  string relation = 2;
+  string object = 3;
+  string context = 4;
+}
+
+message RelationTupleFilter {
+  string subject = 1;
+  string relation = 2;
+  string object = 3;
+  string context = 4;
+}
+
+message RelationCheckInput {
+  string subject = 1;
+  string relation = 2;
+  string object = 3;
+  string context = 4;
+}
+
+message RelationCheckOutput {
+  bool allowed = 1;
+  string subject = 2;
+  string relation = 3;
+  string object = 4;
+  string context = 5;
+  string reason = 6;
+  string error = 100;
+}
+
+message UpsertRelationTupleInput {
+  RelationTuple tuple = 1;
+}
+
+message UpsertRelationTupleOutput {
+  bool changed = 1;
+  RelationTuple tuple = 2;
+  string error = 100;
+}
+
+message ListRelationTuplesInput {
+  RelationTupleFilter filter = 1;
+}
+
+message ListRelationTuplesOutput {
+  repeated RelationTuple tuples = 1;
+  string error = 100;
+}
+
+message RemoveRelationTupleInput {
+  RelationTuple tuple = 1;
+}
+
+message RemoveRelationTupleOutput {
+  bool changed = 1;
+  string error = 100;
+}
+
+message UIActionDeclaration {
+  string id = 1;
+  string context = 2;
+  string label = 3;
+  string route = 4;
+  repeated string required_scopes = 5;
+  repeated CapabilityRequirement required_capabilities = 6;
+  string description = 7;
+  string owner_plugin = 8;
+  string owner_module = 9;
+  string category = 10;
+}
+
+message AuthzDeclarationSet {
+  repeated ScopeDeclaration scopes = 1;
+  repeated ResourceDeclaration resources = 2;
+  repeated ActionDeclaration actions = 3;
+  repeated AttributeDeclaration attributes = 4;
+  repeated RelationDeclaration relations = 5;
+  repeated UIActionDeclaration ui_actions = 6;
+  string owner_plugin = 7;
+  string owner_module = 8;
+}
+
+message RegisterDeclarationsInput {
+  AuthzDeclarationSet declarations = 1;
+  string owner_plugin = 2;
+  string owner_module = 3;
+}
+
+message RegisterDeclarationsOutput {
+  int32 registered = 1;
+  AuthzDeclarationSet declarations = 2;
+  string error = 100;
+}
+
+message ListDeclarationsInput {
+  string context = 1;
+  string owner_plugin = 2;
+  string owner_module = 3;
+}
+
+message ListDeclarationsOutput {
+  AuthzDeclarationSet declarations = 1;
+  string error = 100;
+}
+
+message ResolveProjectionInputsInput {
+  string context = 1;
+  string owner_plugin = 2;
+  string owner_module = 3;
+}
+
+message ProjectionInputs {
+  repeated string scope_names = 1;
+  repeated string resource_names = 2;
+  repeated string action_names = 3;
+  repeated string attribute_names = 4;
+  repeated string relation_names = 5;
+  repeated string ui_action_ids = 6;
+  repeated string lookup_source_ids = 7;
+}
+
+message ResolveProjectionInputsOutput {
+  ProjectionInputs projection = 1;
+  string error = 100;
+}
+
+message ResolveSubjectScopesInput {
+  string subject = 1;
+  repeated string direct_scopes = 2;
+  repeated string role_scopes = 3;
+  string context = 4;
+}
+
+message ResolveSubjectScopesOutput {
+  string subject = 1;
+  repeated string scopes = 2;
+  repeated ScopeDeclaration declared_scopes = 3;
+  string error = 100;
+}
+
+message RoleScopeGrant {
+  string role = 1;
+  string context = 2;
+  repeated string scopes = 3;
+}
+
+message SubjectRoleAssignment {
+  string subject = 1;
+  string role = 2;
+  string context = 3;
+  repeated string direct_scopes = 4;
+}
+
+message AssignmentFilter {
+  string subject = 1;
+  string role = 2;
+  string context = 3;
+}
+
+message ScopeCheckInput {
+  string subject = 1;
+  string context = 2;
+  string scope = 3;
+  string resource = 4;
+  string action = 5;
+}
+
+message ScopeCheckOutput {
+  bool allowed = 1;
+  string provider = 2;
+  string subject = 3;
+  string context = 4;
+  string scope = 5;
+  string matched_role = 6;
+  repeated string matched_scopes = 7;
+  string reason = 8;
+  string error = 100;
+}
+
+message UpsertRoleInput {
+  RoleScopeGrant grant = 1;
+}
+
+message UpsertRoleOutput {
+  bool changed = 1;
+  RoleScopeGrant grant = 2;
+  string error = 100;
+}
+
+message AssignRoleInput {
+  SubjectRoleAssignment assignment = 1;
+}
+
+message AssignRoleOutput {
+  bool changed = 1;
+  SubjectRoleAssignment assignment = 2;
+  string error = 100;
+}
+
+message ListRoleAssignmentsInput {
+  AssignmentFilter filter = 1;
+}
+
+message ListRoleAssignmentsOutput {
+  repeated SubjectRoleAssignment assignments = 1;
+  string error = 100;
+}
+
+message RemoveRoleAssignmentInput {
+  SubjectRoleAssignment assignment = 1;
+}
+
+message RemoveRoleAssignmentOutput {
+  bool changed = 1;
+  string error = 100;
 }

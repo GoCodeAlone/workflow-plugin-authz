@@ -57,22 +57,33 @@ type moduleRegistry interface {
 	GetEnforcer(name string) (*CasbinModule, bool)
 }
 
+type authzProviderRegistry interface {
+	GetAuthzProvider(name string) (AuthzProvider, bool)
+}
+
 // globalRegistry is the package-level registry shared between all steps created
 // by CreateModule. It maps module-name → *CasbinModule.
 var globalRegistry = &defaultRegistry{
-	modules: make(map[string]*CasbinModule),
+	modules:   make(map[string]*CasbinModule),
+	providers: make(map[string]AuthzProvider),
 }
 
 // RegisterModule adds a CasbinModule to the global registry. It is called by
 // CreateModule so that CreateStep can find the enforcer by name.
 func RegisterModule(m *CasbinModule) {
 	globalRegistry.set(m.name, m)
+	RegisterAuthzProvider(m.name, m)
+}
+
+func RegisterAuthzProvider(name string, provider AuthzProvider) {
+	globalRegistry.setAuthzProvider(name, provider)
 }
 
 // defaultRegistry is a simple thread-safe module registry backed by a map.
 type defaultRegistry struct {
-	mu      sync.RWMutex
-	modules map[string]*CasbinModule
+	mu        sync.RWMutex
+	modules   map[string]*CasbinModule
+	providers map[string]AuthzProvider
 }
 
 func (r *defaultRegistry) set(name string, m *CasbinModule) {
@@ -86,6 +97,22 @@ func (r *defaultRegistry) GetEnforcer(name string) (*CasbinModule, bool) {
 	defer r.mu.RUnlock()
 	m, ok := r.modules[name]
 	return m, ok
+}
+
+func (r *defaultRegistry) setAuthzProvider(name string, provider AuthzProvider) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.providers == nil {
+		r.providers = make(map[string]AuthzProvider)
+	}
+	r.providers[name] = provider
+}
+
+func (r *defaultRegistry) GetAuthzProvider(name string) (AuthzProvider, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	provider, ok := r.providers[name]
+	return provider, ok
 }
 
 // newAuthzCheckStep parses step config and returns an authzCheckStep.
