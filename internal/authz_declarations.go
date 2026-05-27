@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/GoCodeAlone/workflow-plugin-authz/internal/contracts"
+	"google.golang.org/protobuf/proto"
 )
 
 var allowedAttributeDataTypes = map[string]bool{
@@ -660,8 +661,7 @@ func cloneResourceDeclaration(item *contracts.ResourceDeclaration) *contracts.Re
 	if item == nil {
 		return nil
 	}
-	clone := *item
-	return &clone
+	return proto.Clone(item).(*contracts.ResourceDeclaration)
 }
 
 func cloneActionDeclarations(items []*contracts.ActionDeclaration) []*contracts.ActionDeclaration {
@@ -676,8 +676,7 @@ func cloneActionDeclaration(item *contracts.ActionDeclaration) *contracts.Action
 	if item == nil {
 		return nil
 	}
-	clone := *item
-	return &clone
+	return proto.Clone(item).(*contracts.ActionDeclaration)
 }
 
 func cloneAttributeDeclarations(items []*contracts.AttributeDeclaration) []*contracts.AttributeDeclaration {
@@ -692,9 +691,9 @@ func cloneAttributeDeclaration(item *contracts.AttributeDeclaration) *contracts.
 	if item == nil {
 		return nil
 	}
-	clone := *item
+	clone := proto.Clone(item).(*contracts.AttributeDeclaration)
 	clone.AllowedValues = cloneAttributeValues(item.GetAllowedValues())
-	return &clone
+	return clone
 }
 
 func cloneAttributeValues(items []*contracts.AttributeValue) []*contracts.AttributeValue {
@@ -703,8 +702,7 @@ func cloneAttributeValues(items []*contracts.AttributeValue) []*contracts.Attrib
 		if item == nil {
 			continue
 		}
-		clone := *item
-		out = append(out, &clone)
+		out = append(out, proto.Clone(item).(*contracts.AttributeValue))
 	}
 	return out
 }
@@ -721,8 +719,7 @@ func cloneRelationDeclaration(item *contracts.RelationDeclaration) *contracts.Re
 	if item == nil {
 		return nil
 	}
-	clone := *item
-	return &clone
+	return proto.Clone(item).(*contracts.RelationDeclaration)
 }
 
 func cloneUIActionDeclarations(items []*contracts.UIActionDeclaration) []*contracts.UIActionDeclaration {
@@ -737,10 +734,21 @@ func cloneUIActionDeclaration(item *contracts.UIActionDeclaration) *contracts.UI
 	if item == nil {
 		return nil
 	}
-	clone := *item
+	clone := proto.Clone(item).(*contracts.UIActionDeclaration)
 	clone.RequiredScopes = append([]string(nil), item.GetRequiredScopes()...)
-	clone.RequiredCapabilities = append([]*contracts.CapabilityRequirement(nil), item.GetRequiredCapabilities()...)
-	return &clone
+	clone.RequiredCapabilities = cloneCapabilityRequirements(item.GetRequiredCapabilities())
+	return clone
+}
+
+func cloneCapabilityRequirements(items []*contracts.CapabilityRequirement) []*contracts.CapabilityRequirement {
+	out := make([]*contracts.CapabilityRequirement, 0, len(items))
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		out = append(out, proto.Clone(item).(*contracts.CapabilityRequirement))
+	}
+	return out
 }
 
 func sortDeclarationSet(set *contracts.AuthzDeclarationSet) {
