@@ -103,6 +103,9 @@ func TestScopeCatalogStrictContracts(t *testing.T) {
 		"service:ScopeCatalog/RegisterScopes",
 		"service:ScopeCatalog/ListScopes",
 		"service:ScopeCatalog/ResolveSubjectScopes",
+		"service:ScopeCatalog/RegisterDeclarations",
+		"service:ScopeCatalog/ListDeclarations",
+		"service:ScopeCatalog/ResolveProjectionInputs",
 	} {
 		if contractsByKey[key] == nil {
 			t.Fatalf("missing strict scope catalog contract %s", key)

@@ -11,15 +11,31 @@ import (
 )
 
 type scopeCatalogModule struct {
-	name   string
-	mu     sync.RWMutex
-	scopes map[string]*contracts.ScopeDeclaration
+	name       string
+	mu         sync.RWMutex
+	scopes     map[string]*contracts.ScopeDeclaration
+	resources  map[string]*contracts.ResourceDeclaration
+	actions    map[string]*contracts.ActionDeclaration
+	attributes map[string]*contracts.AttributeDeclaration
+	relations  map[string]*contracts.RelationDeclaration
+	uiActions  map[string]*contracts.UIActionDeclaration
 }
 
 func newScopeCatalogModule(name string, config map[string]any) *scopeCatalogModule {
-	m := &scopeCatalogModule{name: name, scopes: map[string]*contracts.ScopeDeclaration{}}
+	m := &scopeCatalogModule{
+		name:       name,
+		scopes:     map[string]*contracts.ScopeDeclaration{},
+		resources:  map[string]*contracts.ResourceDeclaration{},
+		actions:    map[string]*contracts.ActionDeclaration{},
+		attributes: map[string]*contracts.AttributeDeclaration{},
+		relations:  map[string]*contracts.RelationDeclaration{},
+		uiActions:  map[string]*contracts.UIActionDeclaration{},
+	}
 	for _, scope := range scopeDeclarationsFromAny(config["scopes"], "", "") {
 		m.upsert(scope)
+	}
+	if declarations := declarationSetFromAny(config["declarations"], "", ""); declarations != nil {
+		_, _ = m.registerDeclarations(&contracts.RegisterDeclarationsInput{Declarations: declarations})
 	}
 	return m
 }
@@ -43,6 +59,16 @@ func (m *scopeCatalogModule) InvokeMethod(method string, input map[string]any) (
 	case "ResolveSubjectScopes":
 		out := m.resolveSubjectScopes(resolveSubjectScopesInputFromMap(input))
 		return resolveSubjectScopesOutputToMap(out), nil
+	case "RegisterDeclarations":
+		out, err := m.registerDeclarations(registerDeclarationsInputFromMap(input))
+		if err != nil {
+			return nil, err
+		}
+		return registerDeclarationsOutputToMap(out), nil
+	case "ListDeclarations":
+		return map[string]any{"declarations": declarationSetToMap(m.listDeclarations(listDeclarationsInputFromMap(input)))}, nil
+	case "ResolveProjectionInputs":
+		return map[string]any{"projection": projectionInputsToMap(m.resolveProjectionInputs(resolveProjectionInputsInputFromMap(input)))}, nil
 	default:
 		return nil, fmt.Errorf("authz scope catalog method %q is not supported", method)
 	}
@@ -154,6 +180,9 @@ func scopeCatalogConfigToMap(cfg *contracts.ScopeCatalogConfig) map[string]any {
 	}
 	if cfg.GetAllowRuntimeRegistration() {
 		out["allow_runtime_registration"] = true
+	}
+	if cfg.GetDeclarations() != nil {
+		out["declarations"] = declarationSetToMap(cfg.GetDeclarations())
 	}
 	return out
 }

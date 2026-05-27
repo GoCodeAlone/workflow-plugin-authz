@@ -171,6 +171,30 @@
     },
     {
       "kind": "service_method",
+      "serviceName": "ScopeCatalog",
+      "method": "RegisterDeclarations",
+      "mode": "strict",
+      "input": "workflow.plugins.authz.v1.RegisterDeclarationsInput",
+      "output": "workflow.plugins.authz.v1.RegisterDeclarationsOutput"
+    },
+    {
+      "kind": "service_method",
+      "serviceName": "ScopeCatalog",
+      "method": "ListDeclarations",
+      "mode": "strict",
+      "input": "workflow.plugins.authz.v1.ListDeclarationsInput",
+      "output": "workflow.plugins.authz.v1.ListDeclarationsOutput"
+    },
+    {
+      "kind": "service_method",
+      "serviceName": "ScopeCatalog",
+      "method": "ResolveProjectionInputs",
+      "mode": "strict",
+      "input": "workflow.plugins.authz.v1.ResolveProjectionInputsInput",
+      "output": "workflow.plugins.authz.v1.ResolveProjectionInputsOutput"
+    },
+    {
+      "kind": "service_method",
       "serviceName": "ProviderCapabilities",
       "method": "GetCapabilities",
       "mode": "strict",

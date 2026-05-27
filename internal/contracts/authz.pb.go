@@ -2495,6 +2495,7 @@ type ScopeCatalogConfig struct {
 	state                    protoimpl.MessageState `protogen:"open.v1"`
 	Scopes                   []*ScopeDeclaration    `protobuf:"bytes,1,rep,name=scopes,proto3" json:"scopes,omitempty"`
 	AllowRuntimeRegistration bool                   `protobuf:"varint,2,opt,name=allow_runtime_registration,json=allowRuntimeRegistration,proto3" json:"allow_runtime_registration,omitempty"`
+	Declarations             *AuthzDeclarationSet   `protobuf:"bytes,3,opt,name=declarations,proto3" json:"declarations,omitempty"`
 	unknownFields            protoimpl.UnknownFields
 	sizeCache                protoimpl.SizeCache
 }
@@ -2541,6 +2542,13 @@ func (x *ScopeCatalogConfig) GetAllowRuntimeRegistration() bool {
 		return x.AllowRuntimeRegistration
 	}
 	return false
+}
+
+func (x *ScopeCatalogConfig) GetDeclarations() *AuthzDeclarationSet {
+	if x != nil {
+		return x.Declarations
+	}
+	return nil
 }
 
 type RegisterScopesInput struct {
@@ -2775,6 +2783,1118 @@ func (x *ListScopesOutput) GetError() string {
 	return ""
 }
 
+type ResourceDeclaration struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Name           string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Context        string                 `protobuf:"bytes,2,opt,name=context,proto3" json:"context,omitempty"`
+	DisplayName    string                 `protobuf:"bytes,3,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	Description    string                 `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
+	OwnerPlugin    string                 `protobuf:"bytes,5,opt,name=owner_plugin,json=ownerPlugin,proto3" json:"owner_plugin,omitempty"`
+	OwnerModule    string                 `protobuf:"bytes,6,opt,name=owner_module,json=ownerModule,proto3" json:"owner_module,omitempty"`
+	Category       string                 `protobuf:"bytes,7,opt,name=category,proto3" json:"category,omitempty"`
+	LookupSourceId string                 `protobuf:"bytes,8,opt,name=lookup_source_id,json=lookupSourceId,proto3" json:"lookup_source_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ResourceDeclaration) Reset() {
+	*x = ResourceDeclaration{}
+	mi := &file_internal_contracts_authz_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResourceDeclaration) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResourceDeclaration) ProtoMessage() {}
+
+func (x *ResourceDeclaration) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_contracts_authz_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResourceDeclaration.ProtoReflect.Descriptor instead.
+func (*ResourceDeclaration) Descriptor() ([]byte, []int) {
+	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *ResourceDeclaration) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ResourceDeclaration) GetContext() string {
+	if x != nil {
+		return x.Context
+	}
+	return ""
+}
+
+func (x *ResourceDeclaration) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+func (x *ResourceDeclaration) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *ResourceDeclaration) GetOwnerPlugin() string {
+	if x != nil {
+		return x.OwnerPlugin
+	}
+	return ""
+}
+
+func (x *ResourceDeclaration) GetOwnerModule() string {
+	if x != nil {
+		return x.OwnerModule
+	}
+	return ""
+}
+
+func (x *ResourceDeclaration) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *ResourceDeclaration) GetLookupSourceId() string {
+	if x != nil {
+		return x.LookupSourceId
+	}
+	return ""
+}
+
+type ActionDeclaration struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Context       string                 `protobuf:"bytes,2,opt,name=context,proto3" json:"context,omitempty"`
+	Resource      string                 `protobuf:"bytes,3,opt,name=resource,proto3" json:"resource,omitempty"`
+	Description   string                 `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
+	OwnerPlugin   string                 `protobuf:"bytes,5,opt,name=owner_plugin,json=ownerPlugin,proto3" json:"owner_plugin,omitempty"`
+	OwnerModule   string                 `protobuf:"bytes,6,opt,name=owner_module,json=ownerModule,proto3" json:"owner_module,omitempty"`
+	Category      string                 `protobuf:"bytes,7,opt,name=category,proto3" json:"category,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ActionDeclaration) Reset() {
+	*x = ActionDeclaration{}
+	mi := &file_internal_contracts_authz_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ActionDeclaration) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ActionDeclaration) ProtoMessage() {}
+
+func (x *ActionDeclaration) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_contracts_authz_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ActionDeclaration.ProtoReflect.Descriptor instead.
+func (*ActionDeclaration) Descriptor() ([]byte, []int) {
+	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *ActionDeclaration) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ActionDeclaration) GetContext() string {
+	if x != nil {
+		return x.Context
+	}
+	return ""
+}
+
+func (x *ActionDeclaration) GetResource() string {
+	if x != nil {
+		return x.Resource
+	}
+	return ""
+}
+
+func (x *ActionDeclaration) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *ActionDeclaration) GetOwnerPlugin() string {
+	if x != nil {
+		return x.OwnerPlugin
+	}
+	return ""
+}
+
+func (x *ActionDeclaration) GetOwnerModule() string {
+	if x != nil {
+		return x.OwnerModule
+	}
+	return ""
+}
+
+func (x *ActionDeclaration) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+type AttributeValue struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Value         string                 `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	Label         string                 `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AttributeValue) Reset() {
+	*x = AttributeValue{}
+	mi := &file_internal_contracts_authz_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AttributeValue) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AttributeValue) ProtoMessage() {}
+
+func (x *AttributeValue) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_contracts_authz_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AttributeValue.ProtoReflect.Descriptor instead.
+func (*AttributeValue) Descriptor() ([]byte, []int) {
+	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *AttributeValue) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+func (x *AttributeValue) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+type AttributeDeclaration struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Name           string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Context        string                 `protobuf:"bytes,2,opt,name=context,proto3" json:"context,omitempty"`
+	Target         string                 `protobuf:"bytes,3,opt,name=target,proto3" json:"target,omitempty"`
+	DataType       string                 `protobuf:"bytes,4,opt,name=data_type,json=dataType,proto3" json:"data_type,omitempty"`
+	AllowedValues  []*AttributeValue      `protobuf:"bytes,5,rep,name=allowed_values,json=allowedValues,proto3" json:"allowed_values,omitempty"`
+	LookupSourceId string                 `protobuf:"bytes,6,opt,name=lookup_source_id,json=lookupSourceId,proto3" json:"lookup_source_id,omitempty"`
+	Description    string                 `protobuf:"bytes,7,opt,name=description,proto3" json:"description,omitempty"`
+	OwnerPlugin    string                 `protobuf:"bytes,8,opt,name=owner_plugin,json=ownerPlugin,proto3" json:"owner_plugin,omitempty"`
+	OwnerModule    string                 `protobuf:"bytes,9,opt,name=owner_module,json=ownerModule,proto3" json:"owner_module,omitempty"`
+	Category       string                 `protobuf:"bytes,10,opt,name=category,proto3" json:"category,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *AttributeDeclaration) Reset() {
+	*x = AttributeDeclaration{}
+	mi := &file_internal_contracts_authz_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AttributeDeclaration) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AttributeDeclaration) ProtoMessage() {}
+
+func (x *AttributeDeclaration) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_contracts_authz_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AttributeDeclaration.ProtoReflect.Descriptor instead.
+func (*AttributeDeclaration) Descriptor() ([]byte, []int) {
+	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *AttributeDeclaration) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *AttributeDeclaration) GetContext() string {
+	if x != nil {
+		return x.Context
+	}
+	return ""
+}
+
+func (x *AttributeDeclaration) GetTarget() string {
+	if x != nil {
+		return x.Target
+	}
+	return ""
+}
+
+func (x *AttributeDeclaration) GetDataType() string {
+	if x != nil {
+		return x.DataType
+	}
+	return ""
+}
+
+func (x *AttributeDeclaration) GetAllowedValues() []*AttributeValue {
+	if x != nil {
+		return x.AllowedValues
+	}
+	return nil
+}
+
+func (x *AttributeDeclaration) GetLookupSourceId() string {
+	if x != nil {
+		return x.LookupSourceId
+	}
+	return ""
+}
+
+func (x *AttributeDeclaration) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *AttributeDeclaration) GetOwnerPlugin() string {
+	if x != nil {
+		return x.OwnerPlugin
+	}
+	return ""
+}
+
+func (x *AttributeDeclaration) GetOwnerModule() string {
+	if x != nil {
+		return x.OwnerModule
+	}
+	return ""
+}
+
+func (x *AttributeDeclaration) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+type RelationDeclaration struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Context       string                 `protobuf:"bytes,2,opt,name=context,proto3" json:"context,omitempty"`
+	SubjectType   string                 `protobuf:"bytes,3,opt,name=subject_type,json=subjectType,proto3" json:"subject_type,omitempty"`
+	ObjectType    string                 `protobuf:"bytes,4,opt,name=object_type,json=objectType,proto3" json:"object_type,omitempty"`
+	Description   string                 `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
+	OwnerPlugin   string                 `protobuf:"bytes,6,opt,name=owner_plugin,json=ownerPlugin,proto3" json:"owner_plugin,omitempty"`
+	OwnerModule   string                 `protobuf:"bytes,7,opt,name=owner_module,json=ownerModule,proto3" json:"owner_module,omitempty"`
+	Category      string                 `protobuf:"bytes,8,opt,name=category,proto3" json:"category,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RelationDeclaration) Reset() {
+	*x = RelationDeclaration{}
+	mi := &file_internal_contracts_authz_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RelationDeclaration) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RelationDeclaration) ProtoMessage() {}
+
+func (x *RelationDeclaration) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_contracts_authz_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RelationDeclaration.ProtoReflect.Descriptor instead.
+func (*RelationDeclaration) Descriptor() ([]byte, []int) {
+	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *RelationDeclaration) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *RelationDeclaration) GetContext() string {
+	if x != nil {
+		return x.Context
+	}
+	return ""
+}
+
+func (x *RelationDeclaration) GetSubjectType() string {
+	if x != nil {
+		return x.SubjectType
+	}
+	return ""
+}
+
+func (x *RelationDeclaration) GetObjectType() string {
+	if x != nil {
+		return x.ObjectType
+	}
+	return ""
+}
+
+func (x *RelationDeclaration) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *RelationDeclaration) GetOwnerPlugin() string {
+	if x != nil {
+		return x.OwnerPlugin
+	}
+	return ""
+}
+
+func (x *RelationDeclaration) GetOwnerModule() string {
+	if x != nil {
+		return x.OwnerModule
+	}
+	return ""
+}
+
+func (x *RelationDeclaration) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+type UIActionDeclaration struct {
+	state                protoimpl.MessageState   `protogen:"open.v1"`
+	Id                   string                   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Context              string                   `protobuf:"bytes,2,opt,name=context,proto3" json:"context,omitempty"`
+	Label                string                   `protobuf:"bytes,3,opt,name=label,proto3" json:"label,omitempty"`
+	Route                string                   `protobuf:"bytes,4,opt,name=route,proto3" json:"route,omitempty"`
+	RequiredScopes       []string                 `protobuf:"bytes,5,rep,name=required_scopes,json=requiredScopes,proto3" json:"required_scopes,omitempty"`
+	RequiredCapabilities []*CapabilityRequirement `protobuf:"bytes,6,rep,name=required_capabilities,json=requiredCapabilities,proto3" json:"required_capabilities,omitempty"`
+	Description          string                   `protobuf:"bytes,7,opt,name=description,proto3" json:"description,omitempty"`
+	OwnerPlugin          string                   `protobuf:"bytes,8,opt,name=owner_plugin,json=ownerPlugin,proto3" json:"owner_plugin,omitempty"`
+	OwnerModule          string                   `protobuf:"bytes,9,opt,name=owner_module,json=ownerModule,proto3" json:"owner_module,omitempty"`
+	Category             string                   `protobuf:"bytes,10,opt,name=category,proto3" json:"category,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *UIActionDeclaration) Reset() {
+	*x = UIActionDeclaration{}
+	mi := &file_internal_contracts_authz_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UIActionDeclaration) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UIActionDeclaration) ProtoMessage() {}
+
+func (x *UIActionDeclaration) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_contracts_authz_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UIActionDeclaration.ProtoReflect.Descriptor instead.
+func (*UIActionDeclaration) Descriptor() ([]byte, []int) {
+	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *UIActionDeclaration) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *UIActionDeclaration) GetContext() string {
+	if x != nil {
+		return x.Context
+	}
+	return ""
+}
+
+func (x *UIActionDeclaration) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *UIActionDeclaration) GetRoute() string {
+	if x != nil {
+		return x.Route
+	}
+	return ""
+}
+
+func (x *UIActionDeclaration) GetRequiredScopes() []string {
+	if x != nil {
+		return x.RequiredScopes
+	}
+	return nil
+}
+
+func (x *UIActionDeclaration) GetRequiredCapabilities() []*CapabilityRequirement {
+	if x != nil {
+		return x.RequiredCapabilities
+	}
+	return nil
+}
+
+func (x *UIActionDeclaration) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *UIActionDeclaration) GetOwnerPlugin() string {
+	if x != nil {
+		return x.OwnerPlugin
+	}
+	return ""
+}
+
+func (x *UIActionDeclaration) GetOwnerModule() string {
+	if x != nil {
+		return x.OwnerModule
+	}
+	return ""
+}
+
+func (x *UIActionDeclaration) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+type AuthzDeclarationSet struct {
+	state         protoimpl.MessageState  `protogen:"open.v1"`
+	Scopes        []*ScopeDeclaration     `protobuf:"bytes,1,rep,name=scopes,proto3" json:"scopes,omitempty"`
+	Resources     []*ResourceDeclaration  `protobuf:"bytes,2,rep,name=resources,proto3" json:"resources,omitempty"`
+	Actions       []*ActionDeclaration    `protobuf:"bytes,3,rep,name=actions,proto3" json:"actions,omitempty"`
+	Attributes    []*AttributeDeclaration `protobuf:"bytes,4,rep,name=attributes,proto3" json:"attributes,omitempty"`
+	Relations     []*RelationDeclaration  `protobuf:"bytes,5,rep,name=relations,proto3" json:"relations,omitempty"`
+	UiActions     []*UIActionDeclaration  `protobuf:"bytes,6,rep,name=ui_actions,json=uiActions,proto3" json:"ui_actions,omitempty"`
+	OwnerPlugin   string                  `protobuf:"bytes,7,opt,name=owner_plugin,json=ownerPlugin,proto3" json:"owner_plugin,omitempty"`
+	OwnerModule   string                  `protobuf:"bytes,8,opt,name=owner_module,json=ownerModule,proto3" json:"owner_module,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AuthzDeclarationSet) Reset() {
+	*x = AuthzDeclarationSet{}
+	mi := &file_internal_contracts_authz_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AuthzDeclarationSet) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AuthzDeclarationSet) ProtoMessage() {}
+
+func (x *AuthzDeclarationSet) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_contracts_authz_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AuthzDeclarationSet.ProtoReflect.Descriptor instead.
+func (*AuthzDeclarationSet) Descriptor() ([]byte, []int) {
+	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *AuthzDeclarationSet) GetScopes() []*ScopeDeclaration {
+	if x != nil {
+		return x.Scopes
+	}
+	return nil
+}
+
+func (x *AuthzDeclarationSet) GetResources() []*ResourceDeclaration {
+	if x != nil {
+		return x.Resources
+	}
+	return nil
+}
+
+func (x *AuthzDeclarationSet) GetActions() []*ActionDeclaration {
+	if x != nil {
+		return x.Actions
+	}
+	return nil
+}
+
+func (x *AuthzDeclarationSet) GetAttributes() []*AttributeDeclaration {
+	if x != nil {
+		return x.Attributes
+	}
+	return nil
+}
+
+func (x *AuthzDeclarationSet) GetRelations() []*RelationDeclaration {
+	if x != nil {
+		return x.Relations
+	}
+	return nil
+}
+
+func (x *AuthzDeclarationSet) GetUiActions() []*UIActionDeclaration {
+	if x != nil {
+		return x.UiActions
+	}
+	return nil
+}
+
+func (x *AuthzDeclarationSet) GetOwnerPlugin() string {
+	if x != nil {
+		return x.OwnerPlugin
+	}
+	return ""
+}
+
+func (x *AuthzDeclarationSet) GetOwnerModule() string {
+	if x != nil {
+		return x.OwnerModule
+	}
+	return ""
+}
+
+type RegisterDeclarationsInput struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Declarations  *AuthzDeclarationSet   `protobuf:"bytes,1,opt,name=declarations,proto3" json:"declarations,omitempty"`
+	OwnerPlugin   string                 `protobuf:"bytes,2,opt,name=owner_plugin,json=ownerPlugin,proto3" json:"owner_plugin,omitempty"`
+	OwnerModule   string                 `protobuf:"bytes,3,opt,name=owner_module,json=ownerModule,proto3" json:"owner_module,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RegisterDeclarationsInput) Reset() {
+	*x = RegisterDeclarationsInput{}
+	mi := &file_internal_contracts_authz_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RegisterDeclarationsInput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RegisterDeclarationsInput) ProtoMessage() {}
+
+func (x *RegisterDeclarationsInput) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_contracts_authz_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RegisterDeclarationsInput.ProtoReflect.Descriptor instead.
+func (*RegisterDeclarationsInput) Descriptor() ([]byte, []int) {
+	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *RegisterDeclarationsInput) GetDeclarations() *AuthzDeclarationSet {
+	if x != nil {
+		return x.Declarations
+	}
+	return nil
+}
+
+func (x *RegisterDeclarationsInput) GetOwnerPlugin() string {
+	if x != nil {
+		return x.OwnerPlugin
+	}
+	return ""
+}
+
+func (x *RegisterDeclarationsInput) GetOwnerModule() string {
+	if x != nil {
+		return x.OwnerModule
+	}
+	return ""
+}
+
+type RegisterDeclarationsOutput struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Registered    int32                  `protobuf:"varint,1,opt,name=registered,proto3" json:"registered,omitempty"`
+	Declarations  *AuthzDeclarationSet   `protobuf:"bytes,2,opt,name=declarations,proto3" json:"declarations,omitempty"`
+	Error         string                 `protobuf:"bytes,100,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RegisterDeclarationsOutput) Reset() {
+	*x = RegisterDeclarationsOutput{}
+	mi := &file_internal_contracts_authz_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RegisterDeclarationsOutput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RegisterDeclarationsOutput) ProtoMessage() {}
+
+func (x *RegisterDeclarationsOutput) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_contracts_authz_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RegisterDeclarationsOutput.ProtoReflect.Descriptor instead.
+func (*RegisterDeclarationsOutput) Descriptor() ([]byte, []int) {
+	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *RegisterDeclarationsOutput) GetRegistered() int32 {
+	if x != nil {
+		return x.Registered
+	}
+	return 0
+}
+
+func (x *RegisterDeclarationsOutput) GetDeclarations() *AuthzDeclarationSet {
+	if x != nil {
+		return x.Declarations
+	}
+	return nil
+}
+
+func (x *RegisterDeclarationsOutput) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+type ListDeclarationsInput struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Context       string                 `protobuf:"bytes,1,opt,name=context,proto3" json:"context,omitempty"`
+	OwnerPlugin   string                 `protobuf:"bytes,2,opt,name=owner_plugin,json=ownerPlugin,proto3" json:"owner_plugin,omitempty"`
+	OwnerModule   string                 `protobuf:"bytes,3,opt,name=owner_module,json=ownerModule,proto3" json:"owner_module,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDeclarationsInput) Reset() {
+	*x = ListDeclarationsInput{}
+	mi := &file_internal_contracts_authz_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDeclarationsInput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDeclarationsInput) ProtoMessage() {}
+
+func (x *ListDeclarationsInput) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_contracts_authz_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDeclarationsInput.ProtoReflect.Descriptor instead.
+func (*ListDeclarationsInput) Descriptor() ([]byte, []int) {
+	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *ListDeclarationsInput) GetContext() string {
+	if x != nil {
+		return x.Context
+	}
+	return ""
+}
+
+func (x *ListDeclarationsInput) GetOwnerPlugin() string {
+	if x != nil {
+		return x.OwnerPlugin
+	}
+	return ""
+}
+
+func (x *ListDeclarationsInput) GetOwnerModule() string {
+	if x != nil {
+		return x.OwnerModule
+	}
+	return ""
+}
+
+type ListDeclarationsOutput struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Declarations  *AuthzDeclarationSet   `protobuf:"bytes,1,opt,name=declarations,proto3" json:"declarations,omitempty"`
+	Error         string                 `protobuf:"bytes,100,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListDeclarationsOutput) Reset() {
+	*x = ListDeclarationsOutput{}
+	mi := &file_internal_contracts_authz_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListDeclarationsOutput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListDeclarationsOutput) ProtoMessage() {}
+
+func (x *ListDeclarationsOutput) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_contracts_authz_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListDeclarationsOutput.ProtoReflect.Descriptor instead.
+func (*ListDeclarationsOutput) Descriptor() ([]byte, []int) {
+	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{50}
+}
+
+func (x *ListDeclarationsOutput) GetDeclarations() *AuthzDeclarationSet {
+	if x != nil {
+		return x.Declarations
+	}
+	return nil
+}
+
+func (x *ListDeclarationsOutput) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+type ResolveProjectionInputsInput struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Context       string                 `protobuf:"bytes,1,opt,name=context,proto3" json:"context,omitempty"`
+	OwnerPlugin   string                 `protobuf:"bytes,2,opt,name=owner_plugin,json=ownerPlugin,proto3" json:"owner_plugin,omitempty"`
+	OwnerModule   string                 `protobuf:"bytes,3,opt,name=owner_module,json=ownerModule,proto3" json:"owner_module,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResolveProjectionInputsInput) Reset() {
+	*x = ResolveProjectionInputsInput{}
+	mi := &file_internal_contracts_authz_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResolveProjectionInputsInput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResolveProjectionInputsInput) ProtoMessage() {}
+
+func (x *ResolveProjectionInputsInput) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_contracts_authz_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResolveProjectionInputsInput.ProtoReflect.Descriptor instead.
+func (*ResolveProjectionInputsInput) Descriptor() ([]byte, []int) {
+	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{51}
+}
+
+func (x *ResolveProjectionInputsInput) GetContext() string {
+	if x != nil {
+		return x.Context
+	}
+	return ""
+}
+
+func (x *ResolveProjectionInputsInput) GetOwnerPlugin() string {
+	if x != nil {
+		return x.OwnerPlugin
+	}
+	return ""
+}
+
+func (x *ResolveProjectionInputsInput) GetOwnerModule() string {
+	if x != nil {
+		return x.OwnerModule
+	}
+	return ""
+}
+
+type ProjectionInputs struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	ScopeNames      []string               `protobuf:"bytes,1,rep,name=scope_names,json=scopeNames,proto3" json:"scope_names,omitempty"`
+	ResourceNames   []string               `protobuf:"bytes,2,rep,name=resource_names,json=resourceNames,proto3" json:"resource_names,omitempty"`
+	ActionNames     []string               `protobuf:"bytes,3,rep,name=action_names,json=actionNames,proto3" json:"action_names,omitempty"`
+	AttributeNames  []string               `protobuf:"bytes,4,rep,name=attribute_names,json=attributeNames,proto3" json:"attribute_names,omitempty"`
+	RelationNames   []string               `protobuf:"bytes,5,rep,name=relation_names,json=relationNames,proto3" json:"relation_names,omitempty"`
+	UiActionIds     []string               `protobuf:"bytes,6,rep,name=ui_action_ids,json=uiActionIds,proto3" json:"ui_action_ids,omitempty"`
+	LookupSourceIds []string               `protobuf:"bytes,7,rep,name=lookup_source_ids,json=lookupSourceIds,proto3" json:"lookup_source_ids,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *ProjectionInputs) Reset() {
+	*x = ProjectionInputs{}
+	mi := &file_internal_contracts_authz_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProjectionInputs) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProjectionInputs) ProtoMessage() {}
+
+func (x *ProjectionInputs) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_contracts_authz_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProjectionInputs.ProtoReflect.Descriptor instead.
+func (*ProjectionInputs) Descriptor() ([]byte, []int) {
+	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{52}
+}
+
+func (x *ProjectionInputs) GetScopeNames() []string {
+	if x != nil {
+		return x.ScopeNames
+	}
+	return nil
+}
+
+func (x *ProjectionInputs) GetResourceNames() []string {
+	if x != nil {
+		return x.ResourceNames
+	}
+	return nil
+}
+
+func (x *ProjectionInputs) GetActionNames() []string {
+	if x != nil {
+		return x.ActionNames
+	}
+	return nil
+}
+
+func (x *ProjectionInputs) GetAttributeNames() []string {
+	if x != nil {
+		return x.AttributeNames
+	}
+	return nil
+}
+
+func (x *ProjectionInputs) GetRelationNames() []string {
+	if x != nil {
+		return x.RelationNames
+	}
+	return nil
+}
+
+func (x *ProjectionInputs) GetUiActionIds() []string {
+	if x != nil {
+		return x.UiActionIds
+	}
+	return nil
+}
+
+func (x *ProjectionInputs) GetLookupSourceIds() []string {
+	if x != nil {
+		return x.LookupSourceIds
+	}
+	return nil
+}
+
+type ResolveProjectionInputsOutput struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Projection    *ProjectionInputs      `protobuf:"bytes,1,opt,name=projection,proto3" json:"projection,omitempty"`
+	Error         string                 `protobuf:"bytes,100,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ResolveProjectionInputsOutput) Reset() {
+	*x = ResolveProjectionInputsOutput{}
+	mi := &file_internal_contracts_authz_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResolveProjectionInputsOutput) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResolveProjectionInputsOutput) ProtoMessage() {}
+
+func (x *ResolveProjectionInputsOutput) ProtoReflect() protoreflect.Message {
+	mi := &file_internal_contracts_authz_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResolveProjectionInputsOutput.ProtoReflect.Descriptor instead.
+func (*ResolveProjectionInputsOutput) Descriptor() ([]byte, []int) {
+	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{53}
+}
+
+func (x *ResolveProjectionInputsOutput) GetProjection() *ProjectionInputs {
+	if x != nil {
+		return x.Projection
+	}
+	return nil
+}
+
+func (x *ResolveProjectionInputsOutput) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
 type ResolveSubjectScopesInput struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Subject       string                 `protobuf:"bytes,1,opt,name=subject,proto3" json:"subject,omitempty"`
@@ -2787,7 +3907,7 @@ type ResolveSubjectScopesInput struct {
 
 func (x *ResolveSubjectScopesInput) Reset() {
 	*x = ResolveSubjectScopesInput{}
-	mi := &file_internal_contracts_authz_proto_msgTypes[40]
+	mi := &file_internal_contracts_authz_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2799,7 +3919,7 @@ func (x *ResolveSubjectScopesInput) String() string {
 func (*ResolveSubjectScopesInput) ProtoMessage() {}
 
 func (x *ResolveSubjectScopesInput) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_contracts_authz_proto_msgTypes[40]
+	mi := &file_internal_contracts_authz_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2812,7 +3932,7 @@ func (x *ResolveSubjectScopesInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResolveSubjectScopesInput.ProtoReflect.Descriptor instead.
 func (*ResolveSubjectScopesInput) Descriptor() ([]byte, []int) {
-	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{40}
+	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *ResolveSubjectScopesInput) GetSubject() string {
@@ -2855,7 +3975,7 @@ type ResolveSubjectScopesOutput struct {
 
 func (x *ResolveSubjectScopesOutput) Reset() {
 	*x = ResolveSubjectScopesOutput{}
-	mi := &file_internal_contracts_authz_proto_msgTypes[41]
+	mi := &file_internal_contracts_authz_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2867,7 +3987,7 @@ func (x *ResolveSubjectScopesOutput) String() string {
 func (*ResolveSubjectScopesOutput) ProtoMessage() {}
 
 func (x *ResolveSubjectScopesOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_contracts_authz_proto_msgTypes[41]
+	mi := &file_internal_contracts_authz_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2880,7 +4000,7 @@ func (x *ResolveSubjectScopesOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResolveSubjectScopesOutput.ProtoReflect.Descriptor instead.
 func (*ResolveSubjectScopesOutput) Descriptor() ([]byte, []int) {
-	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{41}
+	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *ResolveSubjectScopesOutput) GetSubject() string {
@@ -2922,7 +4042,7 @@ type RoleScopeGrant struct {
 
 func (x *RoleScopeGrant) Reset() {
 	*x = RoleScopeGrant{}
-	mi := &file_internal_contracts_authz_proto_msgTypes[42]
+	mi := &file_internal_contracts_authz_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2934,7 +4054,7 @@ func (x *RoleScopeGrant) String() string {
 func (*RoleScopeGrant) ProtoMessage() {}
 
 func (x *RoleScopeGrant) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_contracts_authz_proto_msgTypes[42]
+	mi := &file_internal_contracts_authz_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2947,7 +4067,7 @@ func (x *RoleScopeGrant) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RoleScopeGrant.ProtoReflect.Descriptor instead.
 func (*RoleScopeGrant) Descriptor() ([]byte, []int) {
-	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{42}
+	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *RoleScopeGrant) GetRole() string {
@@ -2983,7 +4103,7 @@ type SubjectRoleAssignment struct {
 
 func (x *SubjectRoleAssignment) Reset() {
 	*x = SubjectRoleAssignment{}
-	mi := &file_internal_contracts_authz_proto_msgTypes[43]
+	mi := &file_internal_contracts_authz_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2995,7 +4115,7 @@ func (x *SubjectRoleAssignment) String() string {
 func (*SubjectRoleAssignment) ProtoMessage() {}
 
 func (x *SubjectRoleAssignment) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_contracts_authz_proto_msgTypes[43]
+	mi := &file_internal_contracts_authz_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3008,7 +4128,7 @@ func (x *SubjectRoleAssignment) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SubjectRoleAssignment.ProtoReflect.Descriptor instead.
 func (*SubjectRoleAssignment) Descriptor() ([]byte, []int) {
-	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{43}
+	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *SubjectRoleAssignment) GetSubject() string {
@@ -3050,7 +4170,7 @@ type AssignmentFilter struct {
 
 func (x *AssignmentFilter) Reset() {
 	*x = AssignmentFilter{}
-	mi := &file_internal_contracts_authz_proto_msgTypes[44]
+	mi := &file_internal_contracts_authz_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3062,7 +4182,7 @@ func (x *AssignmentFilter) String() string {
 func (*AssignmentFilter) ProtoMessage() {}
 
 func (x *AssignmentFilter) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_contracts_authz_proto_msgTypes[44]
+	mi := &file_internal_contracts_authz_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3075,7 +4195,7 @@ func (x *AssignmentFilter) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssignmentFilter.ProtoReflect.Descriptor instead.
 func (*AssignmentFilter) Descriptor() ([]byte, []int) {
-	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{44}
+	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *AssignmentFilter) GetSubject() string {
@@ -3112,7 +4232,7 @@ type ScopeCheckInput struct {
 
 func (x *ScopeCheckInput) Reset() {
 	*x = ScopeCheckInput{}
-	mi := &file_internal_contracts_authz_proto_msgTypes[45]
+	mi := &file_internal_contracts_authz_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3124,7 +4244,7 @@ func (x *ScopeCheckInput) String() string {
 func (*ScopeCheckInput) ProtoMessage() {}
 
 func (x *ScopeCheckInput) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_contracts_authz_proto_msgTypes[45]
+	mi := &file_internal_contracts_authz_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3137,7 +4257,7 @@ func (x *ScopeCheckInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScopeCheckInput.ProtoReflect.Descriptor instead.
 func (*ScopeCheckInput) Descriptor() ([]byte, []int) {
-	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{45}
+	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *ScopeCheckInput) GetSubject() string {
@@ -3192,7 +4312,7 @@ type ScopeCheckOutput struct {
 
 func (x *ScopeCheckOutput) Reset() {
 	*x = ScopeCheckOutput{}
-	mi := &file_internal_contracts_authz_proto_msgTypes[46]
+	mi := &file_internal_contracts_authz_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3204,7 +4324,7 @@ func (x *ScopeCheckOutput) String() string {
 func (*ScopeCheckOutput) ProtoMessage() {}
 
 func (x *ScopeCheckOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_contracts_authz_proto_msgTypes[46]
+	mi := &file_internal_contracts_authz_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3217,7 +4337,7 @@ func (x *ScopeCheckOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScopeCheckOutput.ProtoReflect.Descriptor instead.
 func (*ScopeCheckOutput) Descriptor() ([]byte, []int) {
-	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{46}
+	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *ScopeCheckOutput) GetAllowed() bool {
@@ -3292,7 +4412,7 @@ type UpsertRoleInput struct {
 
 func (x *UpsertRoleInput) Reset() {
 	*x = UpsertRoleInput{}
-	mi := &file_internal_contracts_authz_proto_msgTypes[47]
+	mi := &file_internal_contracts_authz_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3304,7 +4424,7 @@ func (x *UpsertRoleInput) String() string {
 func (*UpsertRoleInput) ProtoMessage() {}
 
 func (x *UpsertRoleInput) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_contracts_authz_proto_msgTypes[47]
+	mi := &file_internal_contracts_authz_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3317,7 +4437,7 @@ func (x *UpsertRoleInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertRoleInput.ProtoReflect.Descriptor instead.
 func (*UpsertRoleInput) Descriptor() ([]byte, []int) {
-	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{47}
+	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *UpsertRoleInput) GetGrant() *RoleScopeGrant {
@@ -3338,7 +4458,7 @@ type UpsertRoleOutput struct {
 
 func (x *UpsertRoleOutput) Reset() {
 	*x = UpsertRoleOutput{}
-	mi := &file_internal_contracts_authz_proto_msgTypes[48]
+	mi := &file_internal_contracts_authz_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3350,7 +4470,7 @@ func (x *UpsertRoleOutput) String() string {
 func (*UpsertRoleOutput) ProtoMessage() {}
 
 func (x *UpsertRoleOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_contracts_authz_proto_msgTypes[48]
+	mi := &file_internal_contracts_authz_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3363,7 +4483,7 @@ func (x *UpsertRoleOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpsertRoleOutput.ProtoReflect.Descriptor instead.
 func (*UpsertRoleOutput) Descriptor() ([]byte, []int) {
-	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{48}
+	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *UpsertRoleOutput) GetChanged() bool {
@@ -3396,7 +4516,7 @@ type AssignRoleInput struct {
 
 func (x *AssignRoleInput) Reset() {
 	*x = AssignRoleInput{}
-	mi := &file_internal_contracts_authz_proto_msgTypes[49]
+	mi := &file_internal_contracts_authz_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3408,7 +4528,7 @@ func (x *AssignRoleInput) String() string {
 func (*AssignRoleInput) ProtoMessage() {}
 
 func (x *AssignRoleInput) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_contracts_authz_proto_msgTypes[49]
+	mi := &file_internal_contracts_authz_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3421,7 +4541,7 @@ func (x *AssignRoleInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssignRoleInput.ProtoReflect.Descriptor instead.
 func (*AssignRoleInput) Descriptor() ([]byte, []int) {
-	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{49}
+	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *AssignRoleInput) GetAssignment() *SubjectRoleAssignment {
@@ -3442,7 +4562,7 @@ type AssignRoleOutput struct {
 
 func (x *AssignRoleOutput) Reset() {
 	*x = AssignRoleOutput{}
-	mi := &file_internal_contracts_authz_proto_msgTypes[50]
+	mi := &file_internal_contracts_authz_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3454,7 +4574,7 @@ func (x *AssignRoleOutput) String() string {
 func (*AssignRoleOutput) ProtoMessage() {}
 
 func (x *AssignRoleOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_contracts_authz_proto_msgTypes[50]
+	mi := &file_internal_contracts_authz_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3467,7 +4587,7 @@ func (x *AssignRoleOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssignRoleOutput.ProtoReflect.Descriptor instead.
 func (*AssignRoleOutput) Descriptor() ([]byte, []int) {
-	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{50}
+	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *AssignRoleOutput) GetChanged() bool {
@@ -3500,7 +4620,7 @@ type ListRoleAssignmentsInput struct {
 
 func (x *ListRoleAssignmentsInput) Reset() {
 	*x = ListRoleAssignmentsInput{}
-	mi := &file_internal_contracts_authz_proto_msgTypes[51]
+	mi := &file_internal_contracts_authz_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3512,7 +4632,7 @@ func (x *ListRoleAssignmentsInput) String() string {
 func (*ListRoleAssignmentsInput) ProtoMessage() {}
 
 func (x *ListRoleAssignmentsInput) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_contracts_authz_proto_msgTypes[51]
+	mi := &file_internal_contracts_authz_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3525,7 +4645,7 @@ func (x *ListRoleAssignmentsInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRoleAssignmentsInput.ProtoReflect.Descriptor instead.
 func (*ListRoleAssignmentsInput) Descriptor() ([]byte, []int) {
-	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{51}
+	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *ListRoleAssignmentsInput) GetFilter() *AssignmentFilter {
@@ -3545,7 +4665,7 @@ type ListRoleAssignmentsOutput struct {
 
 func (x *ListRoleAssignmentsOutput) Reset() {
 	*x = ListRoleAssignmentsOutput{}
-	mi := &file_internal_contracts_authz_proto_msgTypes[52]
+	mi := &file_internal_contracts_authz_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3557,7 +4677,7 @@ func (x *ListRoleAssignmentsOutput) String() string {
 func (*ListRoleAssignmentsOutput) ProtoMessage() {}
 
 func (x *ListRoleAssignmentsOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_contracts_authz_proto_msgTypes[52]
+	mi := &file_internal_contracts_authz_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3570,7 +4690,7 @@ func (x *ListRoleAssignmentsOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRoleAssignmentsOutput.ProtoReflect.Descriptor instead.
 func (*ListRoleAssignmentsOutput) Descriptor() ([]byte, []int) {
-	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{52}
+	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *ListRoleAssignmentsOutput) GetAssignments() []*SubjectRoleAssignment {
@@ -3596,7 +4716,7 @@ type RemoveRoleAssignmentInput struct {
 
 func (x *RemoveRoleAssignmentInput) Reset() {
 	*x = RemoveRoleAssignmentInput{}
-	mi := &file_internal_contracts_authz_proto_msgTypes[53]
+	mi := &file_internal_contracts_authz_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3608,7 +4728,7 @@ func (x *RemoveRoleAssignmentInput) String() string {
 func (*RemoveRoleAssignmentInput) ProtoMessage() {}
 
 func (x *RemoveRoleAssignmentInput) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_contracts_authz_proto_msgTypes[53]
+	mi := &file_internal_contracts_authz_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3621,7 +4741,7 @@ func (x *RemoveRoleAssignmentInput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveRoleAssignmentInput.ProtoReflect.Descriptor instead.
 func (*RemoveRoleAssignmentInput) Descriptor() ([]byte, []int) {
-	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{53}
+	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *RemoveRoleAssignmentInput) GetAssignment() *SubjectRoleAssignment {
@@ -3641,7 +4761,7 @@ type RemoveRoleAssignmentOutput struct {
 
 func (x *RemoveRoleAssignmentOutput) Reset() {
 	*x = RemoveRoleAssignmentOutput{}
-	mi := &file_internal_contracts_authz_proto_msgTypes[54]
+	mi := &file_internal_contracts_authz_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3653,7 +4773,7 @@ func (x *RemoveRoleAssignmentOutput) String() string {
 func (*RemoveRoleAssignmentOutput) ProtoMessage() {}
 
 func (x *RemoveRoleAssignmentOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_internal_contracts_authz_proto_msgTypes[54]
+	mi := &file_internal_contracts_authz_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3666,7 +4786,7 @@ func (x *RemoveRoleAssignmentOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveRoleAssignmentOutput.ProtoReflect.Descriptor instead.
 func (*RemoveRoleAssignmentOutput) Descriptor() ([]byte, []int) {
-	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{54}
+	return file_internal_contracts_authz_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *RemoveRoleAssignmentOutput) GetChanged() bool {
@@ -3871,10 +4991,11 @@ const file_internal_contracts_authz_proto_rawDesc = "" +
 	"\vdescription\x18\x05 \x01(\tR\vdescription\x12!\n" +
 	"\fowner_plugin\x18\x06 \x01(\tR\vownerPlugin\x12!\n" +
 	"\fowner_module\x18\a \x01(\tR\vownerModule\x12\x1a\n" +
-	"\bcategory\x18\b \x01(\tR\bcategory\"\x97\x01\n" +
+	"\bcategory\x18\b \x01(\tR\bcategory\"\xeb\x01\n" +
 	"\x12ScopeCatalogConfig\x12C\n" +
 	"\x06scopes\x18\x01 \x03(\v2+.workflow.plugins.authz.v1.ScopeDeclarationR\x06scopes\x12<\n" +
-	"\x1aallow_runtime_registration\x18\x02 \x01(\bR\x18allowRuntimeRegistration\"\xa0\x01\n" +
+	"\x1aallow_runtime_registration\x18\x02 \x01(\bR\x18allowRuntimeRegistration\x12R\n" +
+	"\fdeclarations\x18\x03 \x01(\v2..workflow.plugins.authz.v1.AuthzDeclarationSetR\fdeclarations\"\xa0\x01\n" +
 	"\x13RegisterScopesInput\x12C\n" +
 	"\x06scopes\x18\x01 \x03(\v2+.workflow.plugins.authz.v1.ScopeDeclarationR\x06scopes\x12!\n" +
 	"\fowner_plugin\x18\x02 \x01(\tR\vownerPlugin\x12!\n" +
@@ -3891,6 +5012,107 @@ const file_internal_contracts_authz_proto_rawDesc = "" +
 	"\fowner_module\x18\x03 \x01(\tR\vownerModule\"m\n" +
 	"\x10ListScopesOutput\x12C\n" +
 	"\x06scopes\x18\x01 \x03(\v2+.workflow.plugins.authz.v1.ScopeDeclarationR\x06scopes\x12\x14\n" +
+	"\x05error\x18d \x01(\tR\x05error\"\x94\x02\n" +
+	"\x13ResourceDeclaration\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
+	"\acontext\x18\x02 \x01(\tR\acontext\x12!\n" +
+	"\fdisplay_name\x18\x03 \x01(\tR\vdisplayName\x12 \n" +
+	"\vdescription\x18\x04 \x01(\tR\vdescription\x12!\n" +
+	"\fowner_plugin\x18\x05 \x01(\tR\vownerPlugin\x12!\n" +
+	"\fowner_module\x18\x06 \x01(\tR\vownerModule\x12\x1a\n" +
+	"\bcategory\x18\a \x01(\tR\bcategory\x12(\n" +
+	"\x10lookup_source_id\x18\b \x01(\tR\x0elookupSourceId\"\xe1\x01\n" +
+	"\x11ActionDeclaration\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
+	"\acontext\x18\x02 \x01(\tR\acontext\x12\x1a\n" +
+	"\bresource\x18\x03 \x01(\tR\bresource\x12 \n" +
+	"\vdescription\x18\x04 \x01(\tR\vdescription\x12!\n" +
+	"\fowner_plugin\x18\x05 \x01(\tR\vownerPlugin\x12!\n" +
+	"\fowner_module\x18\x06 \x01(\tR\vownerModule\x12\x1a\n" +
+	"\bcategory\x18\a \x01(\tR\bcategory\"<\n" +
+	"\x0eAttributeValue\x12\x14\n" +
+	"\x05value\x18\x01 \x01(\tR\x05value\x12\x14\n" +
+	"\x05label\x18\x02 \x01(\tR\x05label\"\xf9\x02\n" +
+	"\x14AttributeDeclaration\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
+	"\acontext\x18\x02 \x01(\tR\acontext\x12\x16\n" +
+	"\x06target\x18\x03 \x01(\tR\x06target\x12\x1b\n" +
+	"\tdata_type\x18\x04 \x01(\tR\bdataType\x12P\n" +
+	"\x0eallowed_values\x18\x05 \x03(\v2).workflow.plugins.authz.v1.AttributeValueR\rallowedValues\x12(\n" +
+	"\x10lookup_source_id\x18\x06 \x01(\tR\x0elookupSourceId\x12 \n" +
+	"\vdescription\x18\a \x01(\tR\vdescription\x12!\n" +
+	"\fowner_plugin\x18\b \x01(\tR\vownerPlugin\x12!\n" +
+	"\fowner_module\x18\t \x01(\tR\vownerModule\x12\x1a\n" +
+	"\bcategory\x18\n" +
+	" \x01(\tR\bcategory\"\x8b\x02\n" +
+	"\x13RelationDeclaration\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
+	"\acontext\x18\x02 \x01(\tR\acontext\x12!\n" +
+	"\fsubject_type\x18\x03 \x01(\tR\vsubjectType\x12\x1f\n" +
+	"\vobject_type\x18\x04 \x01(\tR\n" +
+	"objectType\x12 \n" +
+	"\vdescription\x18\x05 \x01(\tR\vdescription\x12!\n" +
+	"\fowner_plugin\x18\x06 \x01(\tR\vownerPlugin\x12!\n" +
+	"\fowner_module\x18\a \x01(\tR\vownerModule\x12\x1a\n" +
+	"\bcategory\x18\b \x01(\tR\bcategory\"\xff\x02\n" +
+	"\x13UIActionDeclaration\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
+	"\acontext\x18\x02 \x01(\tR\acontext\x12\x14\n" +
+	"\x05label\x18\x03 \x01(\tR\x05label\x12\x14\n" +
+	"\x05route\x18\x04 \x01(\tR\x05route\x12'\n" +
+	"\x0frequired_scopes\x18\x05 \x03(\tR\x0erequiredScopes\x12e\n" +
+	"\x15required_capabilities\x18\x06 \x03(\v20.workflow.plugins.authz.v1.CapabilityRequirementR\x14requiredCapabilities\x12 \n" +
+	"\vdescription\x18\a \x01(\tR\vdescription\x12!\n" +
+	"\fowner_plugin\x18\b \x01(\tR\vownerPlugin\x12!\n" +
+	"\fowner_module\x18\t \x01(\tR\vownerModule\x12\x1a\n" +
+	"\bcategory\x18\n" +
+	" \x01(\tR\bcategory\"\xa4\x04\n" +
+	"\x13AuthzDeclarationSet\x12C\n" +
+	"\x06scopes\x18\x01 \x03(\v2+.workflow.plugins.authz.v1.ScopeDeclarationR\x06scopes\x12L\n" +
+	"\tresources\x18\x02 \x03(\v2..workflow.plugins.authz.v1.ResourceDeclarationR\tresources\x12F\n" +
+	"\aactions\x18\x03 \x03(\v2,.workflow.plugins.authz.v1.ActionDeclarationR\aactions\x12O\n" +
+	"\n" +
+	"attributes\x18\x04 \x03(\v2/.workflow.plugins.authz.v1.AttributeDeclarationR\n" +
+	"attributes\x12L\n" +
+	"\trelations\x18\x05 \x03(\v2..workflow.plugins.authz.v1.RelationDeclarationR\trelations\x12M\n" +
+	"\n" +
+	"ui_actions\x18\x06 \x03(\v2..workflow.plugins.authz.v1.UIActionDeclarationR\tuiActions\x12!\n" +
+	"\fowner_plugin\x18\a \x01(\tR\vownerPlugin\x12!\n" +
+	"\fowner_module\x18\b \x01(\tR\vownerModule\"\xb5\x01\n" +
+	"\x19RegisterDeclarationsInput\x12R\n" +
+	"\fdeclarations\x18\x01 \x01(\v2..workflow.plugins.authz.v1.AuthzDeclarationSetR\fdeclarations\x12!\n" +
+	"\fowner_plugin\x18\x02 \x01(\tR\vownerPlugin\x12!\n" +
+	"\fowner_module\x18\x03 \x01(\tR\vownerModule\"\xa6\x01\n" +
+	"\x1aRegisterDeclarationsOutput\x12\x1e\n" +
+	"\n" +
+	"registered\x18\x01 \x01(\x05R\n" +
+	"registered\x12R\n" +
+	"\fdeclarations\x18\x02 \x01(\v2..workflow.plugins.authz.v1.AuthzDeclarationSetR\fdeclarations\x12\x14\n" +
+	"\x05error\x18d \x01(\tR\x05error\"w\n" +
+	"\x15ListDeclarationsInput\x12\x18\n" +
+	"\acontext\x18\x01 \x01(\tR\acontext\x12!\n" +
+	"\fowner_plugin\x18\x02 \x01(\tR\vownerPlugin\x12!\n" +
+	"\fowner_module\x18\x03 \x01(\tR\vownerModule\"\x82\x01\n" +
+	"\x16ListDeclarationsOutput\x12R\n" +
+	"\fdeclarations\x18\x01 \x01(\v2..workflow.plugins.authz.v1.AuthzDeclarationSetR\fdeclarations\x12\x14\n" +
+	"\x05error\x18d \x01(\tR\x05error\"~\n" +
+	"\x1cResolveProjectionInputsInput\x12\x18\n" +
+	"\acontext\x18\x01 \x01(\tR\acontext\x12!\n" +
+	"\fowner_plugin\x18\x02 \x01(\tR\vownerPlugin\x12!\n" +
+	"\fowner_module\x18\x03 \x01(\tR\vownerModule\"\x9d\x02\n" +
+	"\x10ProjectionInputs\x12\x1f\n" +
+	"\vscope_names\x18\x01 \x03(\tR\n" +
+	"scopeNames\x12%\n" +
+	"\x0eresource_names\x18\x02 \x03(\tR\rresourceNames\x12!\n" +
+	"\faction_names\x18\x03 \x03(\tR\vactionNames\x12'\n" +
+	"\x0fattribute_names\x18\x04 \x03(\tR\x0eattributeNames\x12%\n" +
+	"\x0erelation_names\x18\x05 \x03(\tR\rrelationNames\x12\"\n" +
+	"\rui_action_ids\x18\x06 \x03(\tR\vuiActionIds\x12*\n" +
+	"\x11lookup_source_ids\x18\a \x03(\tR\x0flookupSourceIds\"\x82\x01\n" +
+	"\x1dResolveProjectionInputsOutput\x12K\n" +
+	"\n" +
+	"projection\x18\x01 \x01(\v2+.workflow.plugins.authz.v1.ProjectionInputsR\n" +
+	"projection\x12\x14\n" +
 	"\x05error\x18d \x01(\tR\x05error\"\x95\x01\n" +
 	"\x19ResolveSubjectScopesInput\x12\x18\n" +
 	"\asubject\x18\x01 \x01(\tR\asubject\x12#\n" +
@@ -3987,66 +5209,80 @@ func file_internal_contracts_authz_proto_rawDescGZIP() []byte {
 }
 
 var file_internal_contracts_authz_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_internal_contracts_authz_proto_msgTypes = make([]protoimpl.MessageInfo, 55)
+var file_internal_contracts_authz_proto_msgTypes = make([]protoimpl.MessageInfo, 69)
 var file_internal_contracts_authz_proto_goTypes = []any{
-	(AuthzMode)(0),                     // 0: workflow.plugins.authz.v1.AuthzMode
-	(AuthzOperation)(0),                // 1: workflow.plugins.authz.v1.AuthzOperation
-	(*StringList)(nil),                 // 2: workflow.plugins.authz.v1.StringList
-	(*AdapterConfig)(nil),              // 3: workflow.plugins.authz.v1.AdapterConfig
-	(*WatcherConfig)(nil),              // 4: workflow.plugins.authz.v1.WatcherConfig
-	(*CasbinModuleConfig)(nil),         // 5: workflow.plugins.authz.v1.CasbinModuleConfig
-	(*PermitModuleConfig)(nil),         // 6: workflow.plugins.authz.v1.PermitModuleConfig
-	(*KetoModuleConfig)(nil),           // 7: workflow.plugins.authz.v1.KetoModuleConfig
-	(*ExtraField)(nil),                 // 8: workflow.plugins.authz.v1.ExtraField
-	(*AuthzCheckConfig)(nil),           // 9: workflow.plugins.authz.v1.AuthzCheckConfig
-	(*AuthzCheckInput)(nil),            // 10: workflow.plugins.authz.v1.AuthzCheckInput
-	(*AuthzCheckOutput)(nil),           // 11: workflow.plugins.authz.v1.AuthzCheckOutput
-	(*PolicyRuleConfig)(nil),           // 12: workflow.plugins.authz.v1.PolicyRuleConfig
-	(*PolicyRuleInput)(nil),            // 13: workflow.plugins.authz.v1.PolicyRuleInput
-	(*PolicyRuleOutput)(nil),           // 14: workflow.plugins.authz.v1.PolicyRuleOutput
-	(*RoleAssignConfig)(nil),           // 15: workflow.plugins.authz.v1.RoleAssignConfig
-	(*RoleAssignInput)(nil),            // 16: workflow.plugins.authz.v1.RoleAssignInput
-	(*RoleAssignOutput)(nil),           // 17: workflow.plugins.authz.v1.RoleAssignOutput
-	(*CapabilitiesConfig)(nil),         // 18: workflow.plugins.authz.v1.CapabilitiesConfig
-	(*CapabilitiesInput)(nil),          // 19: workflow.plugins.authz.v1.CapabilitiesInput
-	(*CapabilitiesOutput)(nil),         // 20: workflow.plugins.authz.v1.CapabilitiesOutput
-	(*CapabilityDescriptor)(nil),       // 21: workflow.plugins.authz.v1.CapabilityDescriptor
-	(*CapabilityRequirement)(nil),      // 22: workflow.plugins.authz.v1.CapabilityRequirement
-	(*ProviderCapabilitiesInput)(nil),  // 23: workflow.plugins.authz.v1.ProviderCapabilitiesInput
-	(*ProviderCapabilitiesOutput)(nil), // 24: workflow.plugins.authz.v1.ProviderCapabilitiesOutput
-	(*SubjectObjectActionConfig)(nil),  // 25: workflow.plugins.authz.v1.SubjectObjectActionConfig
-	(*SubjectObjectActionInput)(nil),   // 26: workflow.plugins.authz.v1.SubjectObjectActionInput
-	(*SubjectObjectActionOutput)(nil),  // 27: workflow.plugins.authz.v1.SubjectObjectActionOutput
-	(*ListConfig)(nil),                 // 28: workflow.plugins.authz.v1.ListConfig
-	(*ListInput)(nil),                  // 29: workflow.plugins.authz.v1.ListInput
-	(*GenericStepOutput)(nil),          // 30: workflow.plugins.authz.v1.GenericStepOutput
-	(*RelationConfig)(nil),             // 31: workflow.plugins.authz.v1.RelationConfig
-	(*RelationInput)(nil),              // 32: workflow.plugins.authz.v1.RelationInput
-	(*RelationOutput)(nil),             // 33: workflow.plugins.authz.v1.RelationOutput
-	(*PermitStepConfig)(nil),           // 34: workflow.plugins.authz.v1.PermitStepConfig
-	(*PermitStepInput)(nil),            // 35: workflow.plugins.authz.v1.PermitStepInput
-	(*ScopeDeclaration)(nil),           // 36: workflow.plugins.authz.v1.ScopeDeclaration
-	(*ScopeCatalogConfig)(nil),         // 37: workflow.plugins.authz.v1.ScopeCatalogConfig
-	(*RegisterScopesInput)(nil),        // 38: workflow.plugins.authz.v1.RegisterScopesInput
-	(*RegisterScopesOutput)(nil),       // 39: workflow.plugins.authz.v1.RegisterScopesOutput
-	(*ListScopesInput)(nil),            // 40: workflow.plugins.authz.v1.ListScopesInput
-	(*ListScopesOutput)(nil),           // 41: workflow.plugins.authz.v1.ListScopesOutput
-	(*ResolveSubjectScopesInput)(nil),  // 42: workflow.plugins.authz.v1.ResolveSubjectScopesInput
-	(*ResolveSubjectScopesOutput)(nil), // 43: workflow.plugins.authz.v1.ResolveSubjectScopesOutput
-	(*RoleScopeGrant)(nil),             // 44: workflow.plugins.authz.v1.RoleScopeGrant
-	(*SubjectRoleAssignment)(nil),      // 45: workflow.plugins.authz.v1.SubjectRoleAssignment
-	(*AssignmentFilter)(nil),           // 46: workflow.plugins.authz.v1.AssignmentFilter
-	(*ScopeCheckInput)(nil),            // 47: workflow.plugins.authz.v1.ScopeCheckInput
-	(*ScopeCheckOutput)(nil),           // 48: workflow.plugins.authz.v1.ScopeCheckOutput
-	(*UpsertRoleInput)(nil),            // 49: workflow.plugins.authz.v1.UpsertRoleInput
-	(*UpsertRoleOutput)(nil),           // 50: workflow.plugins.authz.v1.UpsertRoleOutput
-	(*AssignRoleInput)(nil),            // 51: workflow.plugins.authz.v1.AssignRoleInput
-	(*AssignRoleOutput)(nil),           // 52: workflow.plugins.authz.v1.AssignRoleOutput
-	(*ListRoleAssignmentsInput)(nil),   // 53: workflow.plugins.authz.v1.ListRoleAssignmentsInput
-	(*ListRoleAssignmentsOutput)(nil),  // 54: workflow.plugins.authz.v1.ListRoleAssignmentsOutput
-	(*RemoveRoleAssignmentInput)(nil),  // 55: workflow.plugins.authz.v1.RemoveRoleAssignmentInput
-	(*RemoveRoleAssignmentOutput)(nil), // 56: workflow.plugins.authz.v1.RemoveRoleAssignmentOutput
-	(*structpb.Struct)(nil),            // 57: google.protobuf.Struct
+	(AuthzMode)(0),                        // 0: workflow.plugins.authz.v1.AuthzMode
+	(AuthzOperation)(0),                   // 1: workflow.plugins.authz.v1.AuthzOperation
+	(*StringList)(nil),                    // 2: workflow.plugins.authz.v1.StringList
+	(*AdapterConfig)(nil),                 // 3: workflow.plugins.authz.v1.AdapterConfig
+	(*WatcherConfig)(nil),                 // 4: workflow.plugins.authz.v1.WatcherConfig
+	(*CasbinModuleConfig)(nil),            // 5: workflow.plugins.authz.v1.CasbinModuleConfig
+	(*PermitModuleConfig)(nil),            // 6: workflow.plugins.authz.v1.PermitModuleConfig
+	(*KetoModuleConfig)(nil),              // 7: workflow.plugins.authz.v1.KetoModuleConfig
+	(*ExtraField)(nil),                    // 8: workflow.plugins.authz.v1.ExtraField
+	(*AuthzCheckConfig)(nil),              // 9: workflow.plugins.authz.v1.AuthzCheckConfig
+	(*AuthzCheckInput)(nil),               // 10: workflow.plugins.authz.v1.AuthzCheckInput
+	(*AuthzCheckOutput)(nil),              // 11: workflow.plugins.authz.v1.AuthzCheckOutput
+	(*PolicyRuleConfig)(nil),              // 12: workflow.plugins.authz.v1.PolicyRuleConfig
+	(*PolicyRuleInput)(nil),               // 13: workflow.plugins.authz.v1.PolicyRuleInput
+	(*PolicyRuleOutput)(nil),              // 14: workflow.plugins.authz.v1.PolicyRuleOutput
+	(*RoleAssignConfig)(nil),              // 15: workflow.plugins.authz.v1.RoleAssignConfig
+	(*RoleAssignInput)(nil),               // 16: workflow.plugins.authz.v1.RoleAssignInput
+	(*RoleAssignOutput)(nil),              // 17: workflow.plugins.authz.v1.RoleAssignOutput
+	(*CapabilitiesConfig)(nil),            // 18: workflow.plugins.authz.v1.CapabilitiesConfig
+	(*CapabilitiesInput)(nil),             // 19: workflow.plugins.authz.v1.CapabilitiesInput
+	(*CapabilitiesOutput)(nil),            // 20: workflow.plugins.authz.v1.CapabilitiesOutput
+	(*CapabilityDescriptor)(nil),          // 21: workflow.plugins.authz.v1.CapabilityDescriptor
+	(*CapabilityRequirement)(nil),         // 22: workflow.plugins.authz.v1.CapabilityRequirement
+	(*ProviderCapabilitiesInput)(nil),     // 23: workflow.plugins.authz.v1.ProviderCapabilitiesInput
+	(*ProviderCapabilitiesOutput)(nil),    // 24: workflow.plugins.authz.v1.ProviderCapabilitiesOutput
+	(*SubjectObjectActionConfig)(nil),     // 25: workflow.plugins.authz.v1.SubjectObjectActionConfig
+	(*SubjectObjectActionInput)(nil),      // 26: workflow.plugins.authz.v1.SubjectObjectActionInput
+	(*SubjectObjectActionOutput)(nil),     // 27: workflow.plugins.authz.v1.SubjectObjectActionOutput
+	(*ListConfig)(nil),                    // 28: workflow.plugins.authz.v1.ListConfig
+	(*ListInput)(nil),                     // 29: workflow.plugins.authz.v1.ListInput
+	(*GenericStepOutput)(nil),             // 30: workflow.plugins.authz.v1.GenericStepOutput
+	(*RelationConfig)(nil),                // 31: workflow.plugins.authz.v1.RelationConfig
+	(*RelationInput)(nil),                 // 32: workflow.plugins.authz.v1.RelationInput
+	(*RelationOutput)(nil),                // 33: workflow.plugins.authz.v1.RelationOutput
+	(*PermitStepConfig)(nil),              // 34: workflow.plugins.authz.v1.PermitStepConfig
+	(*PermitStepInput)(nil),               // 35: workflow.plugins.authz.v1.PermitStepInput
+	(*ScopeDeclaration)(nil),              // 36: workflow.plugins.authz.v1.ScopeDeclaration
+	(*ScopeCatalogConfig)(nil),            // 37: workflow.plugins.authz.v1.ScopeCatalogConfig
+	(*RegisterScopesInput)(nil),           // 38: workflow.plugins.authz.v1.RegisterScopesInput
+	(*RegisterScopesOutput)(nil),          // 39: workflow.plugins.authz.v1.RegisterScopesOutput
+	(*ListScopesInput)(nil),               // 40: workflow.plugins.authz.v1.ListScopesInput
+	(*ListScopesOutput)(nil),              // 41: workflow.plugins.authz.v1.ListScopesOutput
+	(*ResourceDeclaration)(nil),           // 42: workflow.plugins.authz.v1.ResourceDeclaration
+	(*ActionDeclaration)(nil),             // 43: workflow.plugins.authz.v1.ActionDeclaration
+	(*AttributeValue)(nil),                // 44: workflow.plugins.authz.v1.AttributeValue
+	(*AttributeDeclaration)(nil),          // 45: workflow.plugins.authz.v1.AttributeDeclaration
+	(*RelationDeclaration)(nil),           // 46: workflow.plugins.authz.v1.RelationDeclaration
+	(*UIActionDeclaration)(nil),           // 47: workflow.plugins.authz.v1.UIActionDeclaration
+	(*AuthzDeclarationSet)(nil),           // 48: workflow.plugins.authz.v1.AuthzDeclarationSet
+	(*RegisterDeclarationsInput)(nil),     // 49: workflow.plugins.authz.v1.RegisterDeclarationsInput
+	(*RegisterDeclarationsOutput)(nil),    // 50: workflow.plugins.authz.v1.RegisterDeclarationsOutput
+	(*ListDeclarationsInput)(nil),         // 51: workflow.plugins.authz.v1.ListDeclarationsInput
+	(*ListDeclarationsOutput)(nil),        // 52: workflow.plugins.authz.v1.ListDeclarationsOutput
+	(*ResolveProjectionInputsInput)(nil),  // 53: workflow.plugins.authz.v1.ResolveProjectionInputsInput
+	(*ProjectionInputs)(nil),              // 54: workflow.plugins.authz.v1.ProjectionInputs
+	(*ResolveProjectionInputsOutput)(nil), // 55: workflow.plugins.authz.v1.ResolveProjectionInputsOutput
+	(*ResolveSubjectScopesInput)(nil),     // 56: workflow.plugins.authz.v1.ResolveSubjectScopesInput
+	(*ResolveSubjectScopesOutput)(nil),    // 57: workflow.plugins.authz.v1.ResolveSubjectScopesOutput
+	(*RoleScopeGrant)(nil),                // 58: workflow.plugins.authz.v1.RoleScopeGrant
+	(*SubjectRoleAssignment)(nil),         // 59: workflow.plugins.authz.v1.SubjectRoleAssignment
+	(*AssignmentFilter)(nil),              // 60: workflow.plugins.authz.v1.AssignmentFilter
+	(*ScopeCheckInput)(nil),               // 61: workflow.plugins.authz.v1.ScopeCheckInput
+	(*ScopeCheckOutput)(nil),              // 62: workflow.plugins.authz.v1.ScopeCheckOutput
+	(*UpsertRoleInput)(nil),               // 63: workflow.plugins.authz.v1.UpsertRoleInput
+	(*UpsertRoleOutput)(nil),              // 64: workflow.plugins.authz.v1.UpsertRoleOutput
+	(*AssignRoleInput)(nil),               // 65: workflow.plugins.authz.v1.AssignRoleInput
+	(*AssignRoleOutput)(nil),              // 66: workflow.plugins.authz.v1.AssignRoleOutput
+	(*ListRoleAssignmentsInput)(nil),      // 67: workflow.plugins.authz.v1.ListRoleAssignmentsInput
+	(*ListRoleAssignmentsOutput)(nil),     // 68: workflow.plugins.authz.v1.ListRoleAssignmentsOutput
+	(*RemoveRoleAssignmentInput)(nil),     // 69: workflow.plugins.authz.v1.RemoveRoleAssignmentInput
+	(*RemoveRoleAssignmentOutput)(nil),    // 70: workflow.plugins.authz.v1.RemoveRoleAssignmentOutput
+	(*structpb.Struct)(nil),               // 71: google.protobuf.Struct
 }
 var file_internal_contracts_authz_proto_depIdxs = []int32{
 	2,  // 0: workflow.plugins.authz.v1.CasbinModuleConfig.policies:type_name -> workflow.plugins.authz.v1.StringList
@@ -4055,7 +5291,7 @@ var file_internal_contracts_authz_proto_depIdxs = []int32{
 	4,  // 3: workflow.plugins.authz.v1.CasbinModuleConfig.watcher:type_name -> workflow.plugins.authz.v1.WatcherConfig
 	8,  // 4: workflow.plugins.authz.v1.AuthzCheckConfig.extra_fields:type_name -> workflow.plugins.authz.v1.ExtraField
 	8,  // 5: workflow.plugins.authz.v1.AuthzCheckInput.extra_fields:type_name -> workflow.plugins.authz.v1.ExtraField
-	57, // 6: workflow.plugins.authz.v1.AuthzCheckOutput.response_headers:type_name -> google.protobuf.Struct
+	71, // 6: workflow.plugins.authz.v1.AuthzCheckOutput.response_headers:type_name -> google.protobuf.Struct
 	2,  // 7: workflow.plugins.authz.v1.RoleAssignConfig.assignments:type_name -> workflow.plugins.authz.v1.StringList
 	2,  // 8: workflow.plugins.authz.v1.RoleAssignInput.assignments:type_name -> workflow.plugins.authz.v1.StringList
 	2,  // 9: workflow.plugins.authz.v1.RoleAssignOutput.assignments:type_name -> workflow.plugins.authz.v1.StringList
@@ -4066,26 +5302,39 @@ var file_internal_contracts_authz_proto_depIdxs = []int32{
 	1,  // 14: workflow.plugins.authz.v1.CapabilityRequirement.operations:type_name -> workflow.plugins.authz.v1.AuthzOperation
 	22, // 15: workflow.plugins.authz.v1.ProviderCapabilitiesInput.requirements:type_name -> workflow.plugins.authz.v1.CapabilityRequirement
 	21, // 16: workflow.plugins.authz.v1.ProviderCapabilitiesOutput.descriptors:type_name -> workflow.plugins.authz.v1.CapabilityDescriptor
-	57, // 17: workflow.plugins.authz.v1.GenericStepOutput.output:type_name -> google.protobuf.Struct
-	57, // 18: workflow.plugins.authz.v1.PermitStepConfig.values:type_name -> google.protobuf.Struct
-	57, // 19: workflow.plugins.authz.v1.PermitStepInput.values:type_name -> google.protobuf.Struct
+	71, // 17: workflow.plugins.authz.v1.GenericStepOutput.output:type_name -> google.protobuf.Struct
+	71, // 18: workflow.plugins.authz.v1.PermitStepConfig.values:type_name -> google.protobuf.Struct
+	71, // 19: workflow.plugins.authz.v1.PermitStepInput.values:type_name -> google.protobuf.Struct
 	36, // 20: workflow.plugins.authz.v1.ScopeCatalogConfig.scopes:type_name -> workflow.plugins.authz.v1.ScopeDeclaration
-	36, // 21: workflow.plugins.authz.v1.RegisterScopesInput.scopes:type_name -> workflow.plugins.authz.v1.ScopeDeclaration
-	36, // 22: workflow.plugins.authz.v1.RegisterScopesOutput.scopes:type_name -> workflow.plugins.authz.v1.ScopeDeclaration
-	36, // 23: workflow.plugins.authz.v1.ListScopesOutput.scopes:type_name -> workflow.plugins.authz.v1.ScopeDeclaration
-	36, // 24: workflow.plugins.authz.v1.ResolveSubjectScopesOutput.declared_scopes:type_name -> workflow.plugins.authz.v1.ScopeDeclaration
-	44, // 25: workflow.plugins.authz.v1.UpsertRoleInput.grant:type_name -> workflow.plugins.authz.v1.RoleScopeGrant
-	44, // 26: workflow.plugins.authz.v1.UpsertRoleOutput.grant:type_name -> workflow.plugins.authz.v1.RoleScopeGrant
-	45, // 27: workflow.plugins.authz.v1.AssignRoleInput.assignment:type_name -> workflow.plugins.authz.v1.SubjectRoleAssignment
-	45, // 28: workflow.plugins.authz.v1.AssignRoleOutput.assignment:type_name -> workflow.plugins.authz.v1.SubjectRoleAssignment
-	46, // 29: workflow.plugins.authz.v1.ListRoleAssignmentsInput.filter:type_name -> workflow.plugins.authz.v1.AssignmentFilter
-	45, // 30: workflow.plugins.authz.v1.ListRoleAssignmentsOutput.assignments:type_name -> workflow.plugins.authz.v1.SubjectRoleAssignment
-	45, // 31: workflow.plugins.authz.v1.RemoveRoleAssignmentInput.assignment:type_name -> workflow.plugins.authz.v1.SubjectRoleAssignment
-	32, // [32:32] is the sub-list for method output_type
-	32, // [32:32] is the sub-list for method input_type
-	32, // [32:32] is the sub-list for extension type_name
-	32, // [32:32] is the sub-list for extension extendee
-	0,  // [0:32] is the sub-list for field type_name
+	48, // 21: workflow.plugins.authz.v1.ScopeCatalogConfig.declarations:type_name -> workflow.plugins.authz.v1.AuthzDeclarationSet
+	36, // 22: workflow.plugins.authz.v1.RegisterScopesInput.scopes:type_name -> workflow.plugins.authz.v1.ScopeDeclaration
+	36, // 23: workflow.plugins.authz.v1.RegisterScopesOutput.scopes:type_name -> workflow.plugins.authz.v1.ScopeDeclaration
+	36, // 24: workflow.plugins.authz.v1.ListScopesOutput.scopes:type_name -> workflow.plugins.authz.v1.ScopeDeclaration
+	44, // 25: workflow.plugins.authz.v1.AttributeDeclaration.allowed_values:type_name -> workflow.plugins.authz.v1.AttributeValue
+	22, // 26: workflow.plugins.authz.v1.UIActionDeclaration.required_capabilities:type_name -> workflow.plugins.authz.v1.CapabilityRequirement
+	36, // 27: workflow.plugins.authz.v1.AuthzDeclarationSet.scopes:type_name -> workflow.plugins.authz.v1.ScopeDeclaration
+	42, // 28: workflow.plugins.authz.v1.AuthzDeclarationSet.resources:type_name -> workflow.plugins.authz.v1.ResourceDeclaration
+	43, // 29: workflow.plugins.authz.v1.AuthzDeclarationSet.actions:type_name -> workflow.plugins.authz.v1.ActionDeclaration
+	45, // 30: workflow.plugins.authz.v1.AuthzDeclarationSet.attributes:type_name -> workflow.plugins.authz.v1.AttributeDeclaration
+	46, // 31: workflow.plugins.authz.v1.AuthzDeclarationSet.relations:type_name -> workflow.plugins.authz.v1.RelationDeclaration
+	47, // 32: workflow.plugins.authz.v1.AuthzDeclarationSet.ui_actions:type_name -> workflow.plugins.authz.v1.UIActionDeclaration
+	48, // 33: workflow.plugins.authz.v1.RegisterDeclarationsInput.declarations:type_name -> workflow.plugins.authz.v1.AuthzDeclarationSet
+	48, // 34: workflow.plugins.authz.v1.RegisterDeclarationsOutput.declarations:type_name -> workflow.plugins.authz.v1.AuthzDeclarationSet
+	48, // 35: workflow.plugins.authz.v1.ListDeclarationsOutput.declarations:type_name -> workflow.plugins.authz.v1.AuthzDeclarationSet
+	54, // 36: workflow.plugins.authz.v1.ResolveProjectionInputsOutput.projection:type_name -> workflow.plugins.authz.v1.ProjectionInputs
+	36, // 37: workflow.plugins.authz.v1.ResolveSubjectScopesOutput.declared_scopes:type_name -> workflow.plugins.authz.v1.ScopeDeclaration
+	58, // 38: workflow.plugins.authz.v1.UpsertRoleInput.grant:type_name -> workflow.plugins.authz.v1.RoleScopeGrant
+	58, // 39: workflow.plugins.authz.v1.UpsertRoleOutput.grant:type_name -> workflow.plugins.authz.v1.RoleScopeGrant
+	59, // 40: workflow.plugins.authz.v1.AssignRoleInput.assignment:type_name -> workflow.plugins.authz.v1.SubjectRoleAssignment
+	59, // 41: workflow.plugins.authz.v1.AssignRoleOutput.assignment:type_name -> workflow.plugins.authz.v1.SubjectRoleAssignment
+	60, // 42: workflow.plugins.authz.v1.ListRoleAssignmentsInput.filter:type_name -> workflow.plugins.authz.v1.AssignmentFilter
+	59, // 43: workflow.plugins.authz.v1.ListRoleAssignmentsOutput.assignments:type_name -> workflow.plugins.authz.v1.SubjectRoleAssignment
+	59, // 44: workflow.plugins.authz.v1.RemoveRoleAssignmentInput.assignment:type_name -> workflow.plugins.authz.v1.SubjectRoleAssignment
+	45, // [45:45] is the sub-list for method output_type
+	45, // [45:45] is the sub-list for method input_type
+	45, // [45:45] is the sub-list for extension type_name
+	45, // [45:45] is the sub-list for extension extendee
+	0,  // [0:45] is the sub-list for field type_name
 }
 
 func init() { file_internal_contracts_authz_proto_init() }
@@ -4099,7 +5348,7 @@ func file_internal_contracts_authz_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_internal_contracts_authz_proto_rawDesc), len(file_internal_contracts_authz_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   55,
+			NumMessages:   69,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

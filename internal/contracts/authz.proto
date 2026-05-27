@@ -268,6 +268,7 @@ message ScopeDeclaration {
 message ScopeCatalogConfig {
   repeated ScopeDeclaration scopes = 1;
   bool allow_runtime_registration = 2;
+  AuthzDeclarationSet declarations = 3;
 }
 
 message RegisterScopesInput {
@@ -290,6 +291,124 @@ message ListScopesInput {
 
 message ListScopesOutput {
   repeated ScopeDeclaration scopes = 1;
+  string error = 100;
+}
+
+message ResourceDeclaration {
+  string name = 1;
+  string context = 2;
+  string display_name = 3;
+  string description = 4;
+  string owner_plugin = 5;
+  string owner_module = 6;
+  string category = 7;
+  string lookup_source_id = 8;
+}
+
+message ActionDeclaration {
+  string name = 1;
+  string context = 2;
+  string resource = 3;
+  string description = 4;
+  string owner_plugin = 5;
+  string owner_module = 6;
+  string category = 7;
+}
+
+message AttributeValue {
+  string value = 1;
+  string label = 2;
+}
+
+message AttributeDeclaration {
+  string name = 1;
+  string context = 2;
+  string target = 3;
+  string data_type = 4;
+  repeated AttributeValue allowed_values = 5;
+  string lookup_source_id = 6;
+  string description = 7;
+  string owner_plugin = 8;
+  string owner_module = 9;
+  string category = 10;
+}
+
+message RelationDeclaration {
+  string name = 1;
+  string context = 2;
+  string subject_type = 3;
+  string object_type = 4;
+  string description = 5;
+  string owner_plugin = 6;
+  string owner_module = 7;
+  string category = 8;
+}
+
+message UIActionDeclaration {
+  string id = 1;
+  string context = 2;
+  string label = 3;
+  string route = 4;
+  repeated string required_scopes = 5;
+  repeated CapabilityRequirement required_capabilities = 6;
+  string description = 7;
+  string owner_plugin = 8;
+  string owner_module = 9;
+  string category = 10;
+}
+
+message AuthzDeclarationSet {
+  repeated ScopeDeclaration scopes = 1;
+  repeated ResourceDeclaration resources = 2;
+  repeated ActionDeclaration actions = 3;
+  repeated AttributeDeclaration attributes = 4;
+  repeated RelationDeclaration relations = 5;
+  repeated UIActionDeclaration ui_actions = 6;
+  string owner_plugin = 7;
+  string owner_module = 8;
+}
+
+message RegisterDeclarationsInput {
+  AuthzDeclarationSet declarations = 1;
+  string owner_plugin = 2;
+  string owner_module = 3;
+}
+
+message RegisterDeclarationsOutput {
+  int32 registered = 1;
+  AuthzDeclarationSet declarations = 2;
+  string error = 100;
+}
+
+message ListDeclarationsInput {
+  string context = 1;
+  string owner_plugin = 2;
+  string owner_module = 3;
+}
+
+message ListDeclarationsOutput {
+  AuthzDeclarationSet declarations = 1;
+  string error = 100;
+}
+
+message ResolveProjectionInputsInput {
+  string context = 1;
+  string owner_plugin = 2;
+  string owner_module = 3;
+}
+
+message ProjectionInputs {
+  repeated string scope_names = 1;
+  repeated string resource_names = 2;
+  repeated string action_names = 3;
+  repeated string attribute_names = 4;
+  repeated string relation_names = 5;
+  repeated string ui_action_ids = 6;
+  repeated string lookup_source_ids = 7;
+}
+
+message ResolveProjectionInputsOutput {
+  ProjectionInputs projection = 1;
   string error = 100;
 }
 
