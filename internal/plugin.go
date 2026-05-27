@@ -82,9 +82,15 @@ func (p *authzPlugin) CreateModule(typeName, name string, config map[string]any)
 		if err != nil {
 			return nil, err
 		}
+		RegisterAuthzProvider(name, m)
 		return m, nil
 	case "authz.keto":
-		return newKetoModule(name, config)
+		m, err := newKetoModule(name, config)
+		if err != nil {
+			return nil, err
+		}
+		RegisterAuthzProvider(name, m)
+		return m, nil
 	case "authz.scope_catalog":
 		return newScopeCatalogModule(name, config), nil
 	default:
@@ -107,12 +113,22 @@ func (p *authzPlugin) CreateTypedModule(typeName, name string, config *anypb.Any
 		return factory.CreateTypedModule(typeName, name, config)
 	case "permit.provider":
 		factory := sdk.NewTypedModuleFactory(typeName, &contracts.PermitModuleConfig{}, func(name string, cfg *contracts.PermitModuleConfig) (sdk.ModuleInstance, error) {
-			return newPermitModule(name, permitModuleConfigToMap(cfg))
+			m, err := newPermitModule(name, permitModuleConfigToMap(cfg))
+			if err != nil {
+				return nil, err
+			}
+			RegisterAuthzProvider(name, m)
+			return m, nil
 		})
 		return factory.CreateTypedModule(typeName, name, config)
 	case "authz.keto":
 		factory := sdk.NewTypedModuleFactory(typeName, &contracts.KetoModuleConfig{}, func(name string, cfg *contracts.KetoModuleConfig) (sdk.ModuleInstance, error) {
-			return newKetoModule(name, ketoModuleConfigToMap(cfg))
+			m, err := newKetoModule(name, ketoModuleConfigToMap(cfg))
+			if err != nil {
+				return nil, err
+			}
+			RegisterAuthzProvider(name, m)
+			return m, nil
 		})
 		return factory.CreateTypedModule(typeName, name, config)
 	case "authz.scope_catalog":

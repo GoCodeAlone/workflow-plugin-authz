@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	sdk "github.com/GoCodeAlone/workflow/plugin/external/sdk"
 )
@@ -26,7 +27,21 @@ type AuthzProvider interface {
 
 // Capabilities returns the authorization models supported by Casbin.
 func (m *CasbinModule) Capabilities() []AuthzCapability {
-	return []AuthzCapability{CapabilityRBAC, CapabilityABAC, CapabilityACL}
+	modelText := strings.ToLower(m.config.Model)
+	capabilities := make([]AuthzCapability, 0, 4)
+	if casbinModelHasRoleDefinition(modelText, "g") {
+		capabilities = append(capabilities, CapabilityRBAC)
+	}
+	if casbinModelHasRoleDefinition(modelText, "g2") || strings.Contains(modelText, "g2(") {
+		capabilities = append(capabilities, CapabilityReBAC)
+	}
+	if casbinModelHasAttributeAccess(modelText) {
+		capabilities = append(capabilities, CapabilityABAC)
+	}
+	if len(capabilities) == 0 {
+		capabilities = append(capabilities, CapabilityACL)
+	}
+	return capabilities
 }
 
 // SupportsCapability reports whether the Casbin module supports the given
@@ -48,6 +63,22 @@ func (m *PermitModule) Capabilities() []AuthzCapability {
 // SupportsCapability reports whether the Permit module supports the given
 // authorization model.
 func (m *PermitModule) SupportsCapability(cap AuthzCapability) bool {
+	for _, c := range m.Capabilities() {
+		if c == cap {
+			return true
+		}
+	}
+	return false
+}
+
+// Capabilities returns authorization models represented by the Keto adapter.
+func (m *KetoModule) Capabilities() []AuthzCapability {
+	return []AuthzCapability{CapabilityRBAC, CapabilityReBAC}
+}
+
+// SupportsCapability reports whether the Keto module supports the given
+// authorization model.
+func (m *KetoModule) SupportsCapability(cap AuthzCapability) bool {
 	for _, c := range m.Capabilities() {
 		if c == cap {
 			return true
@@ -105,14 +136,28 @@ func (s *authzCapabilitiesStep) Execute(
 		}
 		provider = mod
 	case "permit":
-		_, ok := GetPermitClient(s.moduleName)
-		if !ok {
+		if reg, ok := s.registry.(authzProviderRegistry); ok {
+			if registered, found := reg.GetAuthzProvider(s.moduleName); found {
+				provider = registered
+				break
+			}
+		}
+		if _, ok := GetPermitClient(s.moduleName); !ok {
 			return nil, fmt.Errorf("step.authz_capabilities %q: permit module %q not found", s.name, s.moduleName)
 		}
-		// We need a PermitModule to call Capabilities; create a minimal one.
 		provider = &PermitModule{name: s.moduleName}
+	case "keto":
+		reg, ok := s.registry.(authzProviderRegistry)
+		if !ok {
+			return nil, fmt.Errorf("step.authz_capabilities %q: registry cannot look up keto module %q", s.name, s.moduleName)
+		}
+		registered, found := reg.GetAuthzProvider(s.moduleName)
+		if !found {
+			return nil, fmt.Errorf("step.authz_capabilities %q: keto module %q not found", s.name, s.moduleName)
+		}
+		provider = registered
 	default:
-		return nil, fmt.Errorf("step.authz_capabilities %q: unknown provider %q (expected \"casbin\" or \"permit\")", s.name, s.provider)
+		return nil, fmt.Errorf("step.authz_capabilities %q: unknown provider %q (expected \"casbin\", \"permit\", or \"keto\")", s.name, s.provider)
 	}
 
 	caps := provider.Capabilities()
@@ -128,4 +173,20 @@ func (s *authzCapabilitiesStep) Execute(
 			"capabilities": capStrings,
 		},
 	}, nil
+}
+
+func casbinModelHasRoleDefinition(modelText, name string) bool {
+	for _, line := range strings.Split(modelText, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, name+" ") || strings.HasPrefix(line, name+"=") {
+			return true
+		}
+	}
+	return false
+}
+
+func casbinModelHasAttributeAccess(modelText string) bool {
+	return strings.Contains(modelText, "r.sub.") ||
+		strings.Contains(modelText, "r.obj.") ||
+		strings.Contains(modelText, "eval(")
 }
