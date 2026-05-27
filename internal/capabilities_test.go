@@ -87,9 +87,7 @@ func TestPermitCapabilities(t *testing.T) {
 
 	caps := pm.Capabilities()
 	expected := map[AuthzCapability]bool{
-		CapabilityRBAC:  true,
-		CapabilityABAC:  true,
-		CapabilityReBAC: true,
+		CapabilityRBAC: true,
 	}
 	if len(caps) != len(expected) {
 		t.Fatalf("expected %d capabilities, got %d: %v", len(expected), len(caps), caps)
@@ -109,8 +107,8 @@ func TestPermitSupportsCapability(t *testing.T) {
 		want bool
 	}{
 		{CapabilityRBAC, true},
-		{CapabilityABAC, true},
-		{CapabilityReBAC, true},
+		{CapabilityABAC, false},
+		{CapabilityReBAC, false},
 		{CapabilityACL, false},
 	} {
 		got := pm.SupportsCapability(tc.cap)
@@ -206,17 +204,20 @@ func TestAuthzCapabilitiesStep_Permit(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected capabilities to be []any, got %T", result.Output["capabilities"])
 	}
-	if len(caps) != 3 {
-		t.Errorf("expected 3 capabilities for permit, got %d", len(caps))
+	if len(caps) != 1 {
+		t.Errorf("expected 1 implemented capability for permit, got %d", len(caps))
 	}
 
 	capSet := make(map[string]bool)
 	for _, c := range caps {
 		capSet[c.(string)] = true
 	}
-	for _, expected := range []string{"rbac", "abac", "rebac"} {
-		if !capSet[expected] {
-			t.Errorf("expected capability %q in output", expected)
+	if !capSet["rbac"] {
+		t.Error("expected rbac capability in output")
+	}
+	for _, unsupported := range []string{"abac", "rebac"} {
+		if capSet[unsupported] {
+			t.Errorf("permit step should not advertise unimplemented capability %q", unsupported)
 		}
 	}
 }
@@ -250,6 +251,104 @@ func TestAuthzCapabilitiesStep_Keto(t *testing.T) {
 	}
 	if capSet["abac"] {
 		t.Error("keto capabilities should not include abac")
+	}
+}
+
+func TestAuthzCapabilityDescriptorsAreTruthful(t *testing.T) {
+	reg := &testCapabilityRegistry{mod: rebacTestModule(t), providers: map[string]AuthzProvider{
+		"keto": &KetoModule{name: "keto"},
+	}}
+	for _, tc := range []struct {
+		name        string
+		module      string
+		provider    string
+		wantModes   []string
+		wantOps     map[string][]string
+		rejectModes []string
+	}{
+		{
+			name:      "casbin rebac model",
+			module:    "authz",
+			provider:  "casbin",
+			wantModes: []string{"rbac", "rebac"},
+			wantOps: map[string][]string{
+				"rbac":  {"check", "manage_roles"},
+				"rebac": {"check", "manage_relations", "list"},
+			},
+			rejectModes: []string{"abac", "acl"},
+		},
+		{
+			name:      "keto",
+			module:    "keto",
+			provider:  "keto",
+			wantModes: []string{"rbac", "rebac"},
+			wantOps: map[string][]string{
+				"rbac":  {"check", "manage_roles"},
+				"rebac": {"check", "manage_relations"},
+			},
+			rejectModes: []string{"abac", "acl"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			step, err := newAuthzCapabilitiesStep("caps", map[string]any{
+				"module":   tc.module,
+				"provider": tc.provider,
+			})
+			if err != nil {
+				t.Fatalf("newAuthzCapabilitiesStep: %v", err)
+			}
+			step.registry = reg
+			result, err := step.Execute(context.Background(), nil, nil, nil, nil, nil)
+			if err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+			descriptors := capabilityDescriptorMaps(t, result.Output["capability_descriptors"])
+			byMode := make(map[string]map[string]any, len(descriptors))
+			for _, descriptor := range descriptors {
+				mode := descriptor["mode"].(string)
+				byMode[mode] = descriptor
+				if descriptor["configured"] != true {
+					t.Fatalf("%s configured = %v, want true", mode, descriptor["configured"])
+				}
+				if descriptor["source"] == "" {
+					t.Fatalf("%s missing source", mode)
+				}
+				if descriptor["health"] != "ok" {
+					t.Fatalf("%s health = %v, want ok", mode, descriptor["health"])
+				}
+				if descriptor["unsupported_reason"] != "" {
+					t.Fatalf("%s unsupported_reason = %v, want empty", mode, descriptor["unsupported_reason"])
+				}
+			}
+			for _, mode := range tc.wantModes {
+				descriptor, ok := byMode[mode]
+				if !ok {
+					t.Fatalf("missing descriptor for %q in %#v", mode, descriptors)
+				}
+				gotOps := stringSet(stringSliceValue(descriptor["operations"]))
+				for _, op := range tc.wantOps[mode] {
+					if !gotOps[op] {
+						t.Fatalf("%s missing operation %q in %v", mode, op, gotOps)
+					}
+				}
+			}
+			for _, mode := range tc.rejectModes {
+				if _, ok := byMode[mode]; ok {
+					t.Fatalf("descriptor should not advertise unsupported mode %q", mode)
+				}
+			}
+		})
+	}
+}
+
+func TestAuthzProviderRequireCapabilitiesFailsClosed(t *testing.T) {
+	var provider AuthzProvider = &KetoModule{name: "keto"}
+	err := provider.RequireCapabilities([]CapabilityRequirement{{
+		Mode:       CapabilityABAC,
+		Operations: []AuthzOperation{OperationCheck},
+	}})
+	if err == nil {
+		t.Fatal("expected Keto to reject ABAC requirement")
 	}
 }
 
@@ -389,6 +488,31 @@ func capabilitySet(capabilities []AuthzCapability) map[AuthzCapability]bool {
 	out := make(map[AuthzCapability]bool, len(capabilities))
 	for _, capability := range capabilities {
 		out[capability] = true
+	}
+	return out
+}
+
+func capabilityDescriptorMaps(t *testing.T, value any) []map[string]any {
+	t.Helper()
+	raw, ok := value.([]any)
+	if !ok {
+		t.Fatalf("expected capability_descriptors to be []any, got %T", value)
+	}
+	out := make([]map[string]any, 0, len(raw))
+	for _, item := range raw {
+		m, ok := item.(map[string]any)
+		if !ok {
+			t.Fatalf("expected descriptor map, got %T", item)
+		}
+		out = append(out, m)
+	}
+	return out
+}
+
+func stringSet(values []string) map[string]bool {
+	out := make(map[string]bool, len(values))
+	for _, value := range values {
+		out[value] = true
 	}
 	return out
 }

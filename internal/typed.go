@@ -417,9 +417,12 @@ func roleAssignOutputFromMap(values map[string]any) *contracts.RoleAssignOutput 
 
 func capabilitiesOutputFromMap(values map[string]any) *contracts.CapabilitiesOutput {
 	return &contracts.CapabilitiesOutput{
-		Module:       stringValue(values["module"]),
-		Provider:     stringValue(values["provider"]),
-		Capabilities: stringSliceValue(values["capabilities"]),
+		Module:              stringValue(values["module"]),
+		Provider:            stringValue(values["provider"]),
+		Capabilities:        stringSliceValue(values["capabilities"]),
+		Descriptors:         contractCapabilityDescriptorsFromAny(values["capability_descriptors"]),
+		Health:              stringValue(values["health"]),
+		MissingRequirements: stringSliceValue(values["missing_requirements"]),
 	}
 }
 
@@ -618,4 +621,67 @@ func stringSliceValue(value any) []string {
 	default:
 		return nil
 	}
+}
+
+func contractCapabilityDescriptorsFromAny(value any) []*contracts.CapabilityDescriptor {
+	values, ok := value.([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]*contracts.CapabilityDescriptor, 0, len(values))
+	for _, value := range values {
+		descriptor := capabilityDescriptorFromMap(anyMapValue(value))
+		if descriptor != nil {
+			out = append(out, descriptor)
+		}
+	}
+	return out
+}
+
+func capabilityDescriptorFromMap(values map[string]any) *contracts.CapabilityDescriptor {
+	if values == nil {
+		return nil
+	}
+	return &contracts.CapabilityDescriptor{
+		Mode:              contractAuthzMode(stringValue(values["mode"])),
+		Operations:        contractAuthzOperations(stringSliceValue(values["operations"])),
+		Configured:        boolValue(values["configured"]),
+		Source:            stringValue(values["source"]),
+		Health:            stringValue(values["health"]),
+		UnsupportedReason: stringValue(values["unsupported_reason"]),
+	}
+}
+
+func contractAuthzMode(mode string) contracts.AuthzMode {
+	switch AuthzCapability(mode) {
+	case CapabilityRBAC:
+		return contracts.AuthzMode_AUTHZ_MODE_RBAC
+	case CapabilityABAC:
+		return contracts.AuthzMode_AUTHZ_MODE_ABAC
+	case CapabilityReBAC:
+		return contracts.AuthzMode_AUTHZ_MODE_REBAC
+	case CapabilityACL:
+		return contracts.AuthzMode_AUTHZ_MODE_ACL
+	default:
+		return contracts.AuthzMode_AUTHZ_MODE_UNSPECIFIED
+	}
+}
+
+func contractAuthzOperations(operations []string) []contracts.AuthzOperation {
+	out := make([]contracts.AuthzOperation, 0, len(operations))
+	for _, operation := range operations {
+		switch AuthzOperation(operation) {
+		case OperationCheck:
+			out = append(out, contracts.AuthzOperation_AUTHZ_OPERATION_CHECK)
+		case OperationManageRoles:
+			out = append(out, contracts.AuthzOperation_AUTHZ_OPERATION_MANAGE_ROLES)
+		case OperationManagePolicies:
+			out = append(out, contracts.AuthzOperation_AUTHZ_OPERATION_MANAGE_POLICIES)
+		case OperationManageRelations:
+			out = append(out, contracts.AuthzOperation_AUTHZ_OPERATION_MANAGE_RELATIONS)
+		case OperationList:
+			out = append(out, contracts.AuthzOperation_AUTHZ_OPERATION_LIST)
+		}
+	}
+	return out
 }

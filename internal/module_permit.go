@@ -117,3 +117,14 @@ func (m *PermitModule) RemoveAssignment(ctx context.Context, assignment SubjectR
 func (m *PermitModule) CheckScope(ctx context.Context, check ScopeCheck) (ScopeCheckResult, error) {
 	return m.scopeProvider.CheckScope(ctx, check)
 }
+
+func (m *PermitModule) InvokeMethod(method string, input map[string]any) (map[string]any, error) {
+	switch method {
+	case "GetCapabilities":
+		return providerCapabilitiesInvoke(m.name, "permit", m, input, false)
+	case "RequireCapabilities":
+		return providerCapabilitiesInvoke(m.name, "permit", m, input, true)
+	default:
+		return nil, fmt.Errorf("permit provider method %q is not supported", method)
+	}
+}

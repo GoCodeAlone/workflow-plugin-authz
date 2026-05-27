@@ -263,6 +263,8 @@ func (p *authzPlugin) ContractRegistry() *pb.ContractRegistry {
 		serviceContract("authz.scope_catalog", "ScopeCatalog", "RegisterScopes", "RegisterScopesInput", "RegisterScopesOutput"),
 		serviceContract("authz.scope_catalog", "ScopeCatalog", "ListScopes", "ListScopesInput", "ListScopesOutput"),
 		serviceContract("authz.scope_catalog", "ScopeCatalog", "ResolveSubjectScopes", "ResolveSubjectScopesInput", "ResolveSubjectScopesOutput"),
+		serviceContract("authz.casbin", "ProviderCapabilities", "GetCapabilities", "ProviderCapabilitiesInput", "ProviderCapabilitiesOutput"),
+		serviceContract("authz.casbin", "ProviderCapabilities", "RequireCapabilities", "ProviderCapabilitiesInput", "ProviderCapabilitiesOutput"),
 		serviceContract("authz.casbin", "ScopeRoleProvider", "DeclareScopes", "RegisterScopesInput", "RegisterScopesOutput"),
 		serviceContract("authz.casbin", "ScopeRoleProvider", "UpsertRole", "UpsertRoleInput", "UpsertRoleOutput"),
 		serviceContract("authz.casbin", "ScopeRoleProvider", "AssignRole", "AssignRoleInput", "AssignRoleOutput"),

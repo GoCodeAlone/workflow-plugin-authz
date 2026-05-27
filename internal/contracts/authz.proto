@@ -129,6 +129,56 @@ message CapabilitiesOutput {
   string module = 1;
   string provider = 2;
   repeated string capabilities = 3;
+  repeated CapabilityDescriptor descriptors = 4;
+  string health = 5;
+  repeated string missing_requirements = 6;
+  string error = 100;
+}
+
+enum AuthzMode {
+  AUTHZ_MODE_UNSPECIFIED = 0;
+  AUTHZ_MODE_RBAC = 1;
+  AUTHZ_MODE_ABAC = 2;
+  AUTHZ_MODE_REBAC = 3;
+  AUTHZ_MODE_ACL = 4;
+}
+
+enum AuthzOperation {
+  AUTHZ_OPERATION_UNSPECIFIED = 0;
+  AUTHZ_OPERATION_CHECK = 1;
+  AUTHZ_OPERATION_MANAGE_ROLES = 2;
+  AUTHZ_OPERATION_MANAGE_POLICIES = 3;
+  AUTHZ_OPERATION_MANAGE_RELATIONS = 4;
+  AUTHZ_OPERATION_LIST = 5;
+}
+
+message CapabilityDescriptor {
+  AuthzMode mode = 1;
+  repeated AuthzOperation operations = 2;
+  bool configured = 3;
+  string source = 4;
+  string health = 5;
+  string unsupported_reason = 6;
+}
+
+message CapabilityRequirement {
+  AuthzMode mode = 1;
+  repeated AuthzOperation operations = 2;
+}
+
+message ProviderCapabilitiesInput {
+  string module = 1;
+  string provider = 2;
+  repeated CapabilityRequirement requirements = 3;
+}
+
+message ProviderCapabilitiesOutput {
+  string module = 1;
+  string provider = 2;
+  repeated string capabilities = 3;
+  repeated CapabilityDescriptor descriptors = 4;
+  string health = 5;
+  repeated string missing_requirements = 6;
   string error = 100;
 }
 

@@ -75,6 +75,57 @@ func TestContractRegistryDeclaresStrictContracts(t *testing.T) {
 	}
 }
 
+func TestProviderCapabilitiesStrictProtoTypes(t *testing.T) {
+	req := &contracts.ProviderCapabilitiesInput{
+		Module:   "authz",
+		Provider: "casbin",
+		Requirements: []*contracts.CapabilityRequirement{{
+			Mode:       contracts.AuthzMode_AUTHZ_MODE_RBAC,
+			Operations: []contracts.AuthzOperation{contracts.AuthzOperation_AUTHZ_OPERATION_CHECK},
+		}},
+	}
+	out := &contracts.ProviderCapabilitiesOutput{
+		Module:       req.GetModule(),
+		Provider:     req.GetProvider(),
+		Capabilities: []string{"rbac"},
+		Descriptors: []*contracts.CapabilityDescriptor{{
+			Mode:       contracts.AuthzMode_AUTHZ_MODE_RBAC,
+			Operations: []contracts.AuthzOperation{contracts.AuthzOperation_AUTHZ_OPERATION_CHECK},
+			Configured: true,
+			Source:     "detected",
+			Health:     "ok",
+		}},
+	}
+	if out.GetDescriptors()[0].GetMode() != req.GetRequirements()[0].GetMode() {
+		t.Fatal("capability descriptor mode should use strict proto enums")
+	}
+}
+
+func TestContractRegistryDeclaresProviderCapabilitiesService(t *testing.T) {
+	provider := NewAuthzPlugin().(sdk.ContractProvider)
+	registry := provider.ContractRegistry()
+	var getFound, requireFound bool
+	for _, contract := range registry.Contracts {
+		if contract.Kind != pb.ContractKind_CONTRACT_KIND_SERVICE || contract.ServiceName != "ProviderCapabilities" {
+			continue
+		}
+		switch contract.Method {
+		case "GetCapabilities":
+			getFound = contract.InputMessage == "workflow.plugins.authz.v1.ProviderCapabilitiesInput" &&
+				contract.OutputMessage == "workflow.plugins.authz.v1.ProviderCapabilitiesOutput"
+		case "RequireCapabilities":
+			requireFound = contract.InputMessage == "workflow.plugins.authz.v1.ProviderCapabilitiesInput" &&
+				contract.OutputMessage == "workflow.plugins.authz.v1.ProviderCapabilitiesOutput"
+		}
+	}
+	if !getFound {
+		t.Fatal("missing ProviderCapabilities/GetCapabilities strict service contract")
+	}
+	if !requireFound {
+		t.Fatal("missing ProviderCapabilities/RequireCapabilities strict service contract")
+	}
+}
+
 func TestTypeListsAreDefensiveCopies(t *testing.T) {
 	provider := NewAuthzPlugin()
 	moduleProvider := provider.(sdk.ModuleProvider)

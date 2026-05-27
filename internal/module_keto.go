@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/GoCodeAlone/workflow-plugin-authz/internal/contracts"
 )
@@ -57,6 +58,17 @@ func (m *KetoModule) RemoveAssignment(ctx context.Context, assignment SubjectRol
 
 func (m *KetoModule) CheckScope(ctx context.Context, check ScopeCheck) (ScopeCheckResult, error) {
 	return m.provider.CheckScope(ctx, check)
+}
+
+func (m *KetoModule) InvokeMethod(method string, input map[string]any) (map[string]any, error) {
+	switch method {
+	case "GetCapabilities":
+		return providerCapabilitiesInvoke(m.name, "keto", m, input, false)
+	case "RequireCapabilities":
+		return providerCapabilitiesInvoke(m.name, "keto", m, input, true)
+	default:
+		return nil, fmt.Errorf("authz keto method %q is not supported", method)
+	}
 }
 
 func ketoModuleConfigToMap(cfg *contracts.KetoModuleConfig) map[string]any {

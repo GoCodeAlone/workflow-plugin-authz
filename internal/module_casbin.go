@@ -535,6 +535,10 @@ func (m *CasbinModule) InvokeMethod(method string, input map[string]any) (map[st
 			return nil, err
 		}
 		return scopeCheckResultToMap(result), nil
+	case "GetCapabilities":
+		return providerCapabilitiesInvoke(m.name, "casbin", m, input, false)
+	case "RequireCapabilities":
+		return providerCapabilitiesInvoke(m.name, "casbin", m, input, true)
 	default:
 		return nil, fmt.Errorf("authz casbin method %q is not supported", method)
 	}
