@@ -41,7 +41,7 @@
 - Design committed in `docs/plans/2026-05-27-authz-modes-admin-design.md`.
 - Design adversarial review PASS after replacing engine-level `modules[].requires` with authz-owned config/typed step.
 
-## Task 1: Provider Capability Descriptors
+### Task 1: Provider Capability Descriptors
 
 **Files:**
 - Modify: `internal/contracts/authz.proto`
@@ -65,7 +65,7 @@
 
 **Rollback:** Revert Task 1 commit; legacy string capabilities remain from preflight fix.
 
-## Task 2: Authz Declaration Catalog
+### Task 2: Authz Declaration Catalog
 
 **Files:**
 - Modify: `internal/contracts/authz.proto`
@@ -88,7 +88,7 @@
 
 **Rollback:** Revert Task 2 commit; scope catalog APIs remain.
 
-## Task 3: ABAC Provider Contract
+### Task 3: ABAC Provider Contract
 
 **Files:**
 - Modify: `internal/contracts/authz.proto`
@@ -113,7 +113,7 @@
 
 **Rollback:** Revert Task 3 commit; RBAC/ReBAC contracts remain.
 
-## Task 4: ReBAC Provider Contract
+### Task 4: ReBAC Provider Contract
 
 **Files:**
 - Modify: `internal/contracts/authz.proto`
@@ -138,7 +138,7 @@
 
 **Rollback:** Revert Task 4 commit; existing Keto scope-role provider remains.
 
-## Task 5: Unified Decision API and YAML Steps
+### Task 5: Unified Decision API and YAML Steps
 
 **Files:**
 - Modify: `internal/contracts/authz.proto`
@@ -162,7 +162,7 @@
 
 **Rollback:** Revert Task 5 commit; mode-native contracts remain.
 
-## Task 6: UI Runtime Capability Client
+### Task 6: UI Runtime Capability Client
 
 **Files:**
 - Modify: `/Users/jon/workspace/workflow-plugin-authz-ui/ui/src/api.ts`
@@ -183,7 +183,7 @@
 
 **Rollback:** Revert Task 6 commit; old RBAC screen remains.
 
-## Task 7: RBAC UI Lookup UX
+### Task 7: RBAC UI Lookup UX
 
 **Files:**
 - Modify: `/Users/jon/workspace/workflow-plugin-authz-ui/ui/src/components/RoleTable.tsx`
@@ -201,7 +201,7 @@
 
 **Rollback:** Revert Task 7 commit; Task 6 shell still renders.
 
-## Task 8: ABAC UI
+### Task 8: ABAC UI
 
 **Files:**
 - Create: `/Users/jon/workspace/workflow-plugin-authz-ui/ui/src/components/ABACPolicyTable.tsx`
@@ -221,7 +221,7 @@
 
 **Rollback:** Revert Task 8 commit; shell hides ABAC if unsupported.
 
-## Task 9: ReBAC UI
+### Task 9: ReBAC UI
 
 **Files:**
 - Create: `/Users/jon/workspace/workflow-plugin-authz-ui/ui/src/components/ReBACTupleTable.tsx`
@@ -242,7 +242,7 @@
 
 **Rollback:** Revert Task 9 commit; shell hides ReBAC if unsupported.
 
-## Task 10: SPA Projection and Admin Contribution Authz
+### Task 10: SPA Projection and Admin Contribution Authz
 
 **Files:**
 - Modify: `/Users/jon/workspace/workflow-plugin-authz-ui/ui/src/api.ts`
@@ -262,7 +262,7 @@
 
 **Rollback:** Revert Task 10 commit; admin contribution continues to expose RBAC page only.
 
-## Task 11: Refreshed Demo and Provider Rotation
+### Task 11: Refreshed Demo and Provider Rotation
 
 **Files:**
 - Modify: `/Users/jon/workspace/workflow-scenarios/scenarios/90-admin-tailnet-demo/app/app.py`
@@ -285,7 +285,7 @@
 
 **Rollback:** Revert Task 11 commit; run `docker compose down && docker compose up --build -d`; previous demo remains.
 
-## Task 12: Integration, Exploratory QA, and Security Review
+### Task 12: Integration, Exploratory QA, and Security Review
 
 **Files:**
 - Modify: `docs/plans/2026-05-27-authz-modes-admin.md`
