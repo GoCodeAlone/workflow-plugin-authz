@@ -14,6 +14,12 @@
       "config": "workflow.plugins.authz.v1.PermitModuleConfig"
     },
     {
+      "kind": "module",
+      "type": "authz.scope_catalog",
+      "mode": "strict",
+      "config": "workflow.plugins.authz.v1.ScopeCatalogConfig"
+    },
+    {
       "kind": "step",
       "type": "step.authz_check_casbin",
       "mode": "strict",
@@ -132,6 +138,78 @@
       "config": "workflow.plugins.authz.v1.ListConfig",
       "input": "workflow.plugins.authz.v1.ListInput",
       "output": "workflow.plugins.authz.v1.GenericStepOutput"
+    },
+    {
+      "kind": "service_method",
+      "serviceName": "ScopeCatalog",
+      "method": "RegisterScopes",
+      "mode": "strict",
+      "input": "workflow.plugins.authz.v1.RegisterScopesInput",
+      "output": "workflow.plugins.authz.v1.RegisterScopesOutput"
+    },
+    {
+      "kind": "service_method",
+      "serviceName": "ScopeCatalog",
+      "method": "ListScopes",
+      "mode": "strict",
+      "input": "workflow.plugins.authz.v1.ListScopesInput",
+      "output": "workflow.plugins.authz.v1.ListScopesOutput"
+    },
+    {
+      "kind": "service_method",
+      "serviceName": "ScopeCatalog",
+      "method": "ResolveSubjectScopes",
+      "mode": "strict",
+      "input": "workflow.plugins.authz.v1.ResolveSubjectScopesInput",
+      "output": "workflow.plugins.authz.v1.ResolveSubjectScopesOutput"
+    },
+    {
+      "kind": "service_method",
+      "serviceName": "ScopeRoleProvider",
+      "method": "DeclareScopes",
+      "mode": "strict",
+      "input": "workflow.plugins.authz.v1.RegisterScopesInput",
+      "output": "workflow.plugins.authz.v1.RegisterScopesOutput"
+    },
+    {
+      "kind": "service_method",
+      "serviceName": "ScopeRoleProvider",
+      "method": "UpsertRole",
+      "mode": "strict",
+      "input": "workflow.plugins.authz.v1.UpsertRoleInput",
+      "output": "workflow.plugins.authz.v1.UpsertRoleOutput"
+    },
+    {
+      "kind": "service_method",
+      "serviceName": "ScopeRoleProvider",
+      "method": "AssignRole",
+      "mode": "strict",
+      "input": "workflow.plugins.authz.v1.AssignRoleInput",
+      "output": "workflow.plugins.authz.v1.AssignRoleOutput"
+    },
+    {
+      "kind": "service_method",
+      "serviceName": "ScopeRoleProvider",
+      "method": "ListAssignments",
+      "mode": "strict",
+      "input": "workflow.plugins.authz.v1.ListRoleAssignmentsInput",
+      "output": "workflow.plugins.authz.v1.ListRoleAssignmentsOutput"
+    },
+    {
+      "kind": "service_method",
+      "serviceName": "ScopeRoleProvider",
+      "method": "RemoveAssignment",
+      "mode": "strict",
+      "input": "workflow.plugins.authz.v1.RemoveRoleAssignmentInput",
+      "output": "workflow.plugins.authz.v1.RemoveRoleAssignmentOutput"
+    },
+    {
+      "kind": "service_method",
+      "serviceName": "ScopeRoleProvider",
+      "method": "CheckScope",
+      "mode": "strict",
+      "input": "workflow.plugins.authz.v1.ScopeCheckInput",
+      "output": "workflow.plugins.authz.v1.ScopeCheckOutput"
     },
     {
       "kind": "step",

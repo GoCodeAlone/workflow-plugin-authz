@@ -9,6 +9,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/GoCodeAlone/workflow-plugin-authz/internal/contracts"
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/model"
 	"github.com/casbin/casbin/v2/persist"
@@ -23,10 +24,11 @@ import (
 // loaded from inline config (model text + policy rows + role assignments),
 // a file adapter, or a GORM adapter backed by postgres/mysql/sqlite3.
 type CasbinModule struct {
-	name     string
-	config   casbinConfig
-	mu       sync.RWMutex
-	enforcer *casbin.Enforcer
+	name       string
+	config     casbinConfig
+	mu         sync.RWMutex
+	enforcer   *casbin.Enforcer
+	scopeRoles *scopeRoleStore
 
 	// polling watcher fields
 	stopCh chan struct{}
@@ -88,8 +90,9 @@ func newCasbinModule(name string, config map[string]any) (*CasbinModule, error) 
 		return nil, fmt.Errorf("authz.casbin %q: %w", name, err)
 	}
 	return &CasbinModule{
-		name:   name,
-		config: cfg,
+		name:       name,
+		config:     cfg,
+		scopeRoles: newScopeRoleStore("casbin"),
 	}, nil
 }
 
@@ -462,6 +465,80 @@ func toInterfaceSlice(ss []string) []interface{} {
 
 // Name returns the module name.
 func (m *CasbinModule) Name() string { return m.name }
+
+func (m *CasbinModule) scopeRoleStore() *scopeRoleStore {
+	if m.scopeRoles == nil {
+		m.scopeRoles = newScopeRoleStore("casbin")
+	}
+	return m.scopeRoles
+}
+
+func (m *CasbinModule) DeclareScopes(ctx context.Context, scopes []*contracts.ScopeDeclaration) error {
+	return m.scopeRoleStore().DeclareScopes(ctx, scopes)
+}
+
+func (m *CasbinModule) UpsertRole(ctx context.Context, grant RoleScopeGrant) error {
+	return m.scopeRoleStore().UpsertRole(ctx, grant)
+}
+
+func (m *CasbinModule) AssignRole(ctx context.Context, assignment SubjectRoleAssignment) error {
+	return m.scopeRoleStore().AssignRole(ctx, assignment)
+}
+
+func (m *CasbinModule) ListAssignments(ctx context.Context, filter AssignmentFilter) ([]SubjectRoleAssignment, error) {
+	return m.scopeRoleStore().ListAssignments(ctx, filter)
+}
+
+func (m *CasbinModule) RemoveAssignment(ctx context.Context, assignment SubjectRoleAssignment) error {
+	return m.scopeRoleStore().RemoveAssignment(ctx, assignment)
+}
+
+func (m *CasbinModule) CheckScope(ctx context.Context, check ScopeCheck) (ScopeCheckResult, error) {
+	return m.scopeRoleStore().CheckScope(ctx, check)
+}
+
+func (m *CasbinModule) InvokeMethod(method string, input map[string]any) (map[string]any, error) {
+	ctx := context.Background()
+	switch method {
+	case "DeclareScopes":
+		scopes := scopeDeclarationsFromAny(input["scopes"], stringValue(input["owner_plugin"]), stringValue(input["owner_module"]))
+		if err := m.DeclareScopes(ctx, scopes); err != nil {
+			return nil, err
+		}
+		return map[string]any{"registered": len(scopes), "scopes": scopeDeclarationsToMaps(scopes)}, nil
+	case "UpsertRole":
+		grant := roleScopeGrantFromMap(mapValue(input["grant"]))
+		if err := m.UpsertRole(ctx, grant); err != nil {
+			return nil, err
+		}
+		return map[string]any{"changed": true, "grant": roleScopeGrantToMap(grant)}, nil
+	case "AssignRole":
+		assignment := subjectRoleAssignmentFromMap(mapValue(input["assignment"]))
+		if err := m.AssignRole(ctx, assignment); err != nil {
+			return nil, err
+		}
+		return map[string]any{"changed": true, "assignment": subjectRoleAssignmentToMap(assignment)}, nil
+	case "ListAssignments":
+		assignments, err := m.ListAssignments(ctx, assignmentFilterFromMap(mapValue(input["filter"])))
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"assignments": subjectRoleAssignmentsToMaps(assignments)}, nil
+	case "RemoveAssignment":
+		if err := m.RemoveAssignment(ctx, subjectRoleAssignmentFromMap(mapValue(input["assignment"]))); err != nil {
+			return nil, err
+		}
+		return map[string]any{"changed": true}, nil
+	case "CheckScope":
+		result, err := m.CheckScope(ctx, scopeCheckFromMap(input))
+		if err != nil {
+			return nil, err
+		}
+		return scopeCheckResultToMap(result), nil
+	default:
+		return nil, fmt.Errorf("authz casbin method %q is not supported", method)
+	}
+}
 
 // --- in-memory Casbin adapter ---
 

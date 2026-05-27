@@ -21,7 +21,7 @@ var Version = "0.0.0"
 // authzPlugin implements sdk.PluginProvider, sdk.ModuleProvider, and sdk.StepProvider.
 type authzPlugin struct{}
 
-var moduleTypes = []string{"authz.casbin", "permit.provider"}
+var moduleTypes = []string{"authz.casbin", "permit.provider", "authz.scope_catalog"}
 
 var casbinStepTypes = []string{
 	"step.authz_check_casbin",
@@ -83,6 +83,8 @@ func (p *authzPlugin) CreateModule(typeName, name string, config map[string]any)
 			return nil, err
 		}
 		return m, nil
+	case "authz.scope_catalog":
+		return newScopeCatalogModule(name, config), nil
 	default:
 		return nil, fmt.Errorf("authz plugin: unknown module type %q", typeName)
 	}
@@ -104,6 +106,11 @@ func (p *authzPlugin) CreateTypedModule(typeName, name string, config *anypb.Any
 	case "permit.provider":
 		factory := sdk.NewTypedModuleFactory(typeName, &contracts.PermitModuleConfig{}, func(name string, cfg *contracts.PermitModuleConfig) (sdk.ModuleInstance, error) {
 			return newPermitModule(name, permitModuleConfigToMap(cfg))
+		})
+		return factory.CreateTypedModule(typeName, name, config)
+	case "authz.scope_catalog":
+		factory := sdk.NewTypedModuleFactory(typeName, &contracts.ScopeCatalogConfig{}, func(name string, cfg *contracts.ScopeCatalogConfig) (sdk.ModuleInstance, error) {
+			return newScopeCatalogModule(name, scopeCatalogConfigToMap(cfg)), nil
 		})
 		return factory.CreateTypedModule(typeName, name, config)
 	default:
@@ -213,6 +220,7 @@ func (p *authzPlugin) ContractRegistry() *pb.ContractRegistry {
 	contractsList := []*pb.ContractDescriptor{
 		moduleContract("authz.casbin", "CasbinModuleConfig"),
 		moduleContract("permit.provider", "PermitModuleConfig"),
+		moduleContract("authz.scope_catalog", "ScopeCatalogConfig"),
 		stepContract("step.authz_check_casbin", "AuthzCheckConfig", "AuthzCheckInput", "AuthzCheckOutput"),
 		stepContract("step.authz_add_policy", "PolicyRuleConfig", "PolicyRuleInput", "PolicyRuleOutput"),
 		stepContract("step.authz_remove_policy", "PolicyRuleConfig", "PolicyRuleInput", "PolicyRuleOutput"),
@@ -228,6 +236,15 @@ func (p *authzPlugin) ContractRegistry() *pb.ContractRegistry {
 		stepContract("step.authz_rebac_remove_relation", "RelationConfig", "RelationInput", "RelationOutput"),
 		stepContract("step.authz_rebac_check", "SubjectObjectActionConfig", "SubjectObjectActionInput", "SubjectObjectActionOutput"),
 		stepContract("step.authz_rebac_list_relations", "ListConfig", "ListInput", "GenericStepOutput"),
+		serviceContract("authz.scope_catalog", "ScopeCatalog", "RegisterScopes", "RegisterScopesInput", "RegisterScopesOutput"),
+		serviceContract("authz.scope_catalog", "ScopeCatalog", "ListScopes", "ListScopesInput", "ListScopesOutput"),
+		serviceContract("authz.scope_catalog", "ScopeCatalog", "ResolveSubjectScopes", "ResolveSubjectScopesInput", "ResolveSubjectScopesOutput"),
+		serviceContract("authz.casbin", "ScopeRoleProvider", "DeclareScopes", "RegisterScopesInput", "RegisterScopesOutput"),
+		serviceContract("authz.casbin", "ScopeRoleProvider", "UpsertRole", "UpsertRoleInput", "UpsertRoleOutput"),
+		serviceContract("authz.casbin", "ScopeRoleProvider", "AssignRole", "AssignRoleInput", "AssignRoleOutput"),
+		serviceContract("authz.casbin", "ScopeRoleProvider", "ListAssignments", "ListRoleAssignmentsInput", "ListRoleAssignmentsOutput"),
+		serviceContract("authz.casbin", "ScopeRoleProvider", "RemoveAssignment", "RemoveRoleAssignmentInput", "RemoveRoleAssignmentOutput"),
+		serviceContract("authz.casbin", "ScopeRoleProvider", "CheckScope", "ScopeCheckInput", "ScopeCheckOutput"),
 	}
 	for _, stepType := range permitStepTypes() {
 		contractsList = append(contractsList, stepContract(stepType, "PermitStepConfig", "PermitStepInput", "GenericStepOutput"))
@@ -257,6 +274,19 @@ func stepContract(stepType, configMessage, inputMessage, outputMessage string) *
 		Kind:          pb.ContractKind_CONTRACT_KIND_STEP,
 		StepType:      stepType,
 		ConfigMessage: pkg + configMessage,
+		InputMessage:  pkg + inputMessage,
+		OutputMessage: pkg + outputMessage,
+		Mode:          pb.ContractMode_CONTRACT_MODE_STRICT_PROTO,
+	}
+}
+
+func serviceContract(moduleType, serviceName, method, inputMessage, outputMessage string) *pb.ContractDescriptor {
+	const pkg = "workflow.plugins.authz.v1."
+	return &pb.ContractDescriptor{
+		Kind:          pb.ContractKind_CONTRACT_KIND_SERVICE,
+		ModuleType:    moduleType,
+		ServiceName:   serviceName,
+		Method:        method,
 		InputMessage:  pkg + inputMessage,
 		OutputMessage: pkg + outputMessage,
 		Mode:          pb.ContractMode_CONTRACT_MODE_STRICT_PROTO,

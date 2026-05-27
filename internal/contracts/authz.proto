@@ -198,3 +198,133 @@ message PermitStepInput {
   string module = 1;
   google.protobuf.Struct values = 2;
 }
+
+message ScopeDeclaration {
+  string name = 1;
+  string context = 2;
+  string resource = 3;
+  repeated string actions = 4;
+  string description = 5;
+  string owner_plugin = 6;
+  string owner_module = 7;
+  string category = 8;
+}
+
+message ScopeCatalogConfig {
+  repeated ScopeDeclaration scopes = 1;
+  bool allow_runtime_registration = 2;
+}
+
+message RegisterScopesInput {
+  repeated ScopeDeclaration scopes = 1;
+  string owner_plugin = 2;
+  string owner_module = 3;
+}
+
+message RegisterScopesOutput {
+  int32 registered = 1;
+  repeated ScopeDeclaration scopes = 2;
+  string error = 100;
+}
+
+message ListScopesInput {
+  string context = 1;
+  string owner_plugin = 2;
+  string owner_module = 3;
+}
+
+message ListScopesOutput {
+  repeated ScopeDeclaration scopes = 1;
+  string error = 100;
+}
+
+message ResolveSubjectScopesInput {
+  string subject = 1;
+  repeated string direct_scopes = 2;
+  repeated string role_scopes = 3;
+  string context = 4;
+}
+
+message ResolveSubjectScopesOutput {
+  string subject = 1;
+  repeated string scopes = 2;
+  repeated ScopeDeclaration declared_scopes = 3;
+  string error = 100;
+}
+
+message RoleScopeGrant {
+  string role = 1;
+  string context = 2;
+  repeated string scopes = 3;
+}
+
+message SubjectRoleAssignment {
+  string subject = 1;
+  string role = 2;
+  string context = 3;
+  repeated string direct_scopes = 4;
+}
+
+message AssignmentFilter {
+  string subject = 1;
+  string role = 2;
+  string context = 3;
+}
+
+message ScopeCheckInput {
+  string subject = 1;
+  string context = 2;
+  string scope = 3;
+  string resource = 4;
+  string action = 5;
+}
+
+message ScopeCheckOutput {
+  bool allowed = 1;
+  string provider = 2;
+  string subject = 3;
+  string context = 4;
+  string scope = 5;
+  string matched_role = 6;
+  repeated string matched_scopes = 7;
+  string reason = 8;
+  string error = 100;
+}
+
+message UpsertRoleInput {
+  RoleScopeGrant grant = 1;
+}
+
+message UpsertRoleOutput {
+  bool changed = 1;
+  RoleScopeGrant grant = 2;
+  string error = 100;
+}
+
+message AssignRoleInput {
+  SubjectRoleAssignment assignment = 1;
+}
+
+message AssignRoleOutput {
+  bool changed = 1;
+  SubjectRoleAssignment assignment = 2;
+  string error = 100;
+}
+
+message ListRoleAssignmentsInput {
+  AssignmentFilter filter = 1;
+}
+
+message ListRoleAssignmentsOutput {
+  repeated SubjectRoleAssignment assignments = 1;
+  string error = 100;
+}
+
+message RemoveRoleAssignmentInput {
+  SubjectRoleAssignment assignment = 1;
+}
+
+message RemoveRoleAssignmentOutput {
+  bool changed = 1;
+  string error = 100;
+}
