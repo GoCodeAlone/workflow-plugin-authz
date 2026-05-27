@@ -251,6 +251,38 @@
     },
     {
       "kind": "service_method",
+      "serviceName": "RelationshipProvider",
+      "method": "UpsertRelationTuple",
+      "mode": "strict",
+      "input": "workflow.plugins.authz.v1.UpsertRelationTupleInput",
+      "output": "workflow.plugins.authz.v1.UpsertRelationTupleOutput"
+    },
+    {
+      "kind": "service_method",
+      "serviceName": "RelationshipProvider",
+      "method": "ListRelationTuples",
+      "mode": "strict",
+      "input": "workflow.plugins.authz.v1.ListRelationTuplesInput",
+      "output": "workflow.plugins.authz.v1.ListRelationTuplesOutput"
+    },
+    {
+      "kind": "service_method",
+      "serviceName": "RelationshipProvider",
+      "method": "RemoveRelationTuple",
+      "mode": "strict",
+      "input": "workflow.plugins.authz.v1.RemoveRelationTupleInput",
+      "output": "workflow.plugins.authz.v1.RemoveRelationTupleOutput"
+    },
+    {
+      "kind": "service_method",
+      "serviceName": "RelationshipProvider",
+      "method": "CheckRelation",
+      "mode": "strict",
+      "input": "workflow.plugins.authz.v1.RelationCheckInput",
+      "output": "workflow.plugins.authz.v1.RelationCheckOutput"
+    },
+    {
+      "kind": "service_method",
       "serviceName": "ScopeRoleProvider",
       "method": "DeclareScopes",
       "mode": "strict",

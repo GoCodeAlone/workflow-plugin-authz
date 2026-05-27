@@ -180,7 +180,7 @@ func (m *KetoModule) CapabilityDescriptors() []CapabilityDescriptor {
 		),
 		newCapabilityDescriptor(
 			CapabilityReBAC,
-			[]AuthzOperation{OperationCheck, OperationManageRelations},
+			[]AuthzOperation{OperationCheck, OperationManageRelations, OperationList},
 			"provider",
 		),
 	}

@@ -18,9 +18,10 @@ type ketoClient interface {
 }
 
 type ketoScopeProvider struct {
-	name   string
-	store  *scopeRoleStore
-	client ketoClient
+	name      string
+	store     *scopeRoleStore
+	relations *relationTupleStore
+	client    ketoClient
 }
 
 type ketoTuple struct {
@@ -38,7 +39,7 @@ type ketoSubjectSet struct {
 }
 
 func newKetoScopeProvider(name string, client ketoClient) *ketoScopeProvider {
-	return &ketoScopeProvider{name: name, store: newScopeRoleStore("keto"), client: client}
+	return &ketoScopeProvider{name: name, store: newScopeRoleStore("keto"), relations: newRelationTupleStore(), client: client}
 }
 
 func (p *ketoScopeProvider) Name() string { return p.name }
@@ -154,6 +155,52 @@ func ketoDirectScopeTuple(subject, scope string) ketoTuple {
 	}
 }
 
+func (p *ketoScopeProvider) UpsertRelationTuple(ctx context.Context, tuple RelationTuple) error {
+	if err := p.relations.Upsert(tuple); err != nil {
+		return err
+	}
+	return p.client.CreateRelationship(ctx, ketoRelationshipTuple(tuple))
+}
+
+func (p *ketoScopeProvider) RemoveRelationTuple(ctx context.Context, tuple RelationTuple) error {
+	if err := p.relations.Remove(tuple); err != nil {
+		return err
+	}
+	return p.client.DeleteRelationship(ctx, ketoRelationshipTuple(tuple))
+}
+
+func (p *ketoScopeProvider) ListRelationTuples(_ context.Context, filter RelationTupleFilter) ([]RelationTuple, error) {
+	return p.relations.List(filter), nil
+}
+
+func (p *ketoScopeProvider) CheckRelation(ctx context.Context, check RelationCheck) (RelationCheckResult, error) {
+	tuple := RelationTuple{Subject: check.Subject, Relation: check.Relation, Object: check.Object, Context: check.Context}
+	result := RelationCheckResult{Subject: check.Subject, Relation: check.Relation, Object: check.Object, Context: check.Context}
+	if err := validateRelationTuple(normalizeRelationTuple(tuple)); err != nil {
+		result.Reason = err.Error()
+		return result, nil
+	}
+	allowed, err := p.client.Check(ctx, ketoRelationshipTuple(tuple))
+	if err != nil {
+		return result, err
+	}
+	result.Allowed = allowed
+	if !allowed {
+		result.Reason = "keto denied"
+	}
+	return result, nil
+}
+
+func ketoRelationshipTuple(tuple RelationTuple) ketoTuple {
+	tuple = normalizeRelationTuple(tuple)
+	return ketoTuple{
+		Namespace: "resource",
+		Object:    tuple.Context + ":" + tuple.Object,
+		Relation:  tuple.Relation,
+		SubjectID: tuple.Subject,
+	}
+}
+
 func (t ketoTuple) equal(other ketoTuple) bool {
 	if t.Namespace != other.Namespace || t.Object != other.Object || t.Relation != other.Relation || t.SubjectID != other.SubjectID {
 		return false
@@ -231,3 +278,4 @@ func ignoreKetoConflict(err error) error {
 }
 
 var _ ScopeRoleProvider = (*ketoScopeProvider)(nil)
+var _ RelationshipProvider = (*ketoScopeProvider)(nil)

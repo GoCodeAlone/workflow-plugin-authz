@@ -60,12 +60,36 @@ func (m *KetoModule) CheckScope(ctx context.Context, check ScopeCheck) (ScopeChe
 	return m.provider.CheckScope(ctx, check)
 }
 
+func (m *KetoModule) UpsertRelationTuple(ctx context.Context, tuple RelationTuple) error {
+	return m.provider.UpsertRelationTuple(ctx, tuple)
+}
+
+func (m *KetoModule) RemoveRelationTuple(ctx context.Context, tuple RelationTuple) error {
+	return m.provider.RemoveRelationTuple(ctx, tuple)
+}
+
+func (m *KetoModule) ListRelationTuples(ctx context.Context, filter RelationTupleFilter) ([]RelationTuple, error) {
+	return m.provider.ListRelationTuples(ctx, filter)
+}
+
+func (m *KetoModule) CheckRelation(ctx context.Context, check RelationCheck) (RelationCheckResult, error) {
+	return m.provider.CheckRelation(ctx, check)
+}
+
 func (m *KetoModule) InvokeMethod(method string, input map[string]any) (map[string]any, error) {
 	switch method {
 	case "GetCapabilities":
 		return providerCapabilitiesInvoke(m.name, "keto", m, input, false)
 	case "RequireCapabilities":
 		return providerCapabilitiesInvoke(m.name, "keto", m, input, true)
+	case "UpsertRelationTuple":
+		return upsertRelationTupleInvoke(context.Background(), m, input)
+	case "ListRelationTuples":
+		return listRelationTuplesInvoke(context.Background(), m, input)
+	case "RemoveRelationTuple":
+		return removeRelationTupleInvoke(context.Background(), m, input)
+	case "CheckRelation":
+		return checkRelationInvoke(context.Background(), m, input)
 	default:
 		return nil, fmt.Errorf("authz keto method %q is not supported", method)
 	}

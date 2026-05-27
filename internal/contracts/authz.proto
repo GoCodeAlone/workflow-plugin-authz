@@ -433,6 +433,65 @@ message RelationDeclaration {
   string category = 8;
 }
 
+message RelationTuple {
+  string subject = 1;
+  string relation = 2;
+  string object = 3;
+  string context = 4;
+}
+
+message RelationTupleFilter {
+  string subject = 1;
+  string relation = 2;
+  string object = 3;
+  string context = 4;
+}
+
+message RelationCheckInput {
+  string subject = 1;
+  string relation = 2;
+  string object = 3;
+  string context = 4;
+}
+
+message RelationCheckOutput {
+  bool allowed = 1;
+  string subject = 2;
+  string relation = 3;
+  string object = 4;
+  string context = 5;
+  string reason = 6;
+  string error = 100;
+}
+
+message UpsertRelationTupleInput {
+  RelationTuple tuple = 1;
+}
+
+message UpsertRelationTupleOutput {
+  bool changed = 1;
+  RelationTuple tuple = 2;
+  string error = 100;
+}
+
+message ListRelationTuplesInput {
+  RelationTupleFilter filter = 1;
+}
+
+message ListRelationTuplesOutput {
+  repeated RelationTuple tuples = 1;
+  string error = 100;
+}
+
+message RemoveRelationTupleInput {
+  RelationTuple tuple = 1;
+}
+
+message RemoveRelationTupleOutput {
+  bool changed = 1;
+  string error = 100;
+}
+
 message UIActionDeclaration {
   string id = 1;
   string context = 2;

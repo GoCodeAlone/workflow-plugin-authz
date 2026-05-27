@@ -30,6 +30,7 @@ type CasbinModule struct {
 	enforcer   *casbin.Enforcer
 	scopeRoles *scopeRoleStore
 	abac       *attributePolicyStore
+	relations  *relationTupleStore
 
 	// polling watcher fields
 	stopCh chan struct{}
@@ -95,6 +96,7 @@ func newCasbinModule(name string, config map[string]any) (*CasbinModule, error) 
 		config:     cfg,
 		scopeRoles: newScopeRoleStore("casbin"),
 		abac:       newAttributePolicyStore("casbin", nil),
+		relations:  newRelationTupleStore(),
 	}, nil
 }
 
@@ -534,6 +536,67 @@ func (m *CasbinModule) CheckAttributes(ctx context.Context, check AttributeCheck
 	return m.abac.CheckAttributes(ctx, check)
 }
 
+func (m *CasbinModule) UpsertRelationTuple(_ context.Context, tuple RelationTuple) error {
+	if !m.SupportsCapability(CapabilityReBAC) {
+		return errUnsupportedReBAC
+	}
+	tuple = normalizeRelationTuple(tuple)
+	if err := validateRelationTuple(tuple); err != nil {
+		return err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.enforcer == nil {
+		return fmt.Errorf("casbin enforcer is not initialized")
+	}
+	if _, err := m.enforcer.AddNamedGroupingPolicy("g2", tuple.Subject, tuple.Relation, tuple.Object); err != nil {
+		return err
+	}
+	return m.relations.Upsert(tuple)
+}
+
+func (m *CasbinModule) RemoveRelationTuple(_ context.Context, tuple RelationTuple) error {
+	if !m.SupportsCapability(CapabilityReBAC) {
+		return errUnsupportedReBAC
+	}
+	tuple = normalizeRelationTuple(tuple)
+	if err := validateRelationTuple(tuple); err != nil {
+		return err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.enforcer == nil {
+		return fmt.Errorf("casbin enforcer is not initialized")
+	}
+	if _, err := m.enforcer.RemoveNamedGroupingPolicy("g2", tuple.Subject, tuple.Relation, tuple.Object); err != nil {
+		return err
+	}
+	return m.relations.Remove(tuple)
+}
+
+func (m *CasbinModule) ListRelationTuples(_ context.Context, filter RelationTupleFilter) ([]RelationTuple, error) {
+	if !m.SupportsCapability(CapabilityReBAC) {
+		return nil, errUnsupportedReBAC
+	}
+	return m.relations.List(filter), nil
+}
+
+func (m *CasbinModule) CheckRelation(ctx context.Context, check RelationCheck) (RelationCheckResult, error) {
+	if !m.SupportsCapability(CapabilityReBAC) {
+		return RelationCheckResult{}, errUnsupportedReBAC
+	}
+	tuples, err := m.ListRelationTuples(ctx, RelationTupleFilter{Subject: check.Subject, Relation: check.Relation, Object: check.Object, Context: check.Context})
+	if err != nil {
+		return RelationCheckResult{}, err
+	}
+	result := RelationCheckResult{Subject: check.Subject, Relation: check.Relation, Object: check.Object, Context: check.Context}
+	result.Allowed = len(tuples) > 0
+	if !result.Allowed {
+		result.Reason = "relation tuple not found"
+	}
+	return result, nil
+}
+
 func (m *CasbinModule) InvokeMethod(method string, input map[string]any) (map[string]any, error) {
 	ctx := context.Background()
 	switch method {
@@ -586,6 +649,14 @@ func (m *CasbinModule) InvokeMethod(method string, input map[string]any) (map[st
 		return removeAttributePolicyInvoke(ctx, m, input)
 	case "CheckAttributes":
 		return checkAttributesInvoke(ctx, m, input)
+	case "UpsertRelationTuple":
+		return upsertRelationTupleInvoke(ctx, m, input)
+	case "ListRelationTuples":
+		return listRelationTuplesInvoke(ctx, m, input)
+	case "RemoveRelationTuple":
+		return removeRelationTupleInvoke(ctx, m, input)
+	case "CheckRelation":
+		return checkRelationInvoke(ctx, m, input)
 	default:
 		return nil, fmt.Errorf("authz casbin method %q is not supported", method)
 	}

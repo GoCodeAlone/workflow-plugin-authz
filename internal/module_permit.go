@@ -144,6 +144,28 @@ func (m *PermitModule) CheckAttributes(_ context.Context, check AttributeCheck) 
 	}, errUnsupportedABAC
 }
 
+func (m *PermitModule) UpsertRelationTuple(context.Context, RelationTuple) error {
+	return errUnsupportedReBAC
+}
+
+func (m *PermitModule) RemoveRelationTuple(context.Context, RelationTuple) error {
+	return errUnsupportedReBAC
+}
+
+func (m *PermitModule) ListRelationTuples(context.Context, RelationTupleFilter) ([]RelationTuple, error) {
+	return nil, errUnsupportedReBAC
+}
+
+func (m *PermitModule) CheckRelation(_ context.Context, check RelationCheck) (RelationCheckResult, error) {
+	return RelationCheckResult{
+		Subject:  check.Subject,
+		Relation: check.Relation,
+		Object:   check.Object,
+		Context:  check.Context,
+		Reason:   errUnsupportedReBAC.Error(),
+	}, errUnsupportedReBAC
+}
+
 func (m *PermitModule) InvokeMethod(method string, input map[string]any) (map[string]any, error) {
 	switch method {
 	case "GetCapabilities":
@@ -160,6 +182,14 @@ func (m *PermitModule) InvokeMethod(method string, input map[string]any) (map[st
 		return removeAttributePolicyInvoke(context.Background(), m, input)
 	case "CheckAttributes":
 		return checkAttributesInvoke(context.Background(), m, input)
+	case "UpsertRelationTuple":
+		return upsertRelationTupleInvoke(context.Background(), m, input)
+	case "ListRelationTuples":
+		return listRelationTuplesInvoke(context.Background(), m, input)
+	case "RemoveRelationTuple":
+		return removeRelationTupleInvoke(context.Background(), m, input)
+	case "CheckRelation":
+		return checkRelationInvoke(context.Background(), m, input)
 	default:
 		return nil, fmt.Errorf("permit provider method %q is not supported", method)
 	}
