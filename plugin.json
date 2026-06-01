@@ -1,6 +1,6 @@
 {
     "name": "workflow-plugin-authz",
-    "version": "0.5.8",
+    "version": "0.0.0",
     "description": "RBAC authorization plugin using Casbin",
     "author": "GoCodeAlone",
     "license": "MIT",
