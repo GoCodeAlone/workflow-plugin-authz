@@ -58,28 +58,20 @@ jobs:
     needs: [release]
     runs-on: ubuntu-latest
     steps:
-      - name: Publish GitHub release
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.RELEASES_TOKEN || github.token }}
-          script: |
-            const tag = context.ref.replace('refs/tags/', '');
-            const { owner, repo } = context.repo;
-            // listReleases returns drafts; getReleaseByTag 404s on drafts. GoReleaser
-            // creates releases as draft; this step flips them to non-draft post-publish.
-            const { data: releases } = await github.rest.repos.listReleases({ owner, repo, per_page: 100 });
-            const release = releases.find(r => r.tag_name === tag);
-            if (!release) {
-              throw new Error(`release for tag ${tag} not found in repo listing (latest 100 releases)`);
-            }
-            if (release.draft) {
-              await github.rest.repos.updateRelease({
-                owner,
-                repo,
-                release_id: release.id,
-                draft: false,
-              });
-            }
+      - name: Verify GitHub release is published
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASES_TOKEN || github.token }}
+        run: |
+          set -euo pipefail
+          if ! draft="$(gh release view "${{ github.ref_name }}" --repo "${{ github.repository }}" --json isDraft --jq .isDraft)"; then
+            echo "::error::Unable to verify release ${{ github.ref_name }}."
+            exit 1
+          fi
+          if [ "$draft" != "false" ]; then
+            echo "::error::Release ${{ github.ref_name }} is not published. GoReleaser must publish directly; immutable GitHub releases cannot be flipped after upload."
+            exit 1
+          fi
+          echo "Release ${{ github.ref_name }} is published."
 
   notify-workflow-registry:
     name: Notify workflow-registry
