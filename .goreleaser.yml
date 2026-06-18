@@ -34,4 +34,4 @@ changelog:
   sort: asc
 
 release:
-  draft: true
+  draft: false
