@@ -33,7 +33,9 @@
 | 3 | Scenario demo and provider rotation | Task 11 | feat/authz-modes-demo |
 | 4 | Integration, exploratory QA, security review | Task 12 | feat/authz-modes-validation |
 
-**Status:** Locked 2026-05-27T04:46:45Z
+**Status:** Complete 2026-06-19T23:22:00Z
+
+**Closeout evidence:** Current `main` includes the released authz provider/admin integration work. Cleanup verification on 2026-06-19: `GOWORK=off go test ./...` and `wfctl plugin validate-contract .` both passed.
 
 ## Preflight Already Completed
 
