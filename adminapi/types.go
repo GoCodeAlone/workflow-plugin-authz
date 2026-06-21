@@ -32,10 +32,15 @@ type RoleAssignment struct {
 }
 
 type Scope struct {
-	Name     string `json:"name"`
-	Context  string `json:"context,omitempty"`
-	Resource string `json:"resource,omitempty"`
-	Action   string `json:"action,omitempty"`
+	Name        string   `json:"name"`
+	Context     string   `json:"context,omitempty"`
+	Resource    string   `json:"resource,omitempty"`
+	Action      string   `json:"action,omitempty"`
+	Actions     []string `json:"actions,omitempty"`
+	Description string   `json:"description,omitempty"`
+	Category    string   `json:"category,omitempty"`
+	OwnerPlugin string   `json:"owner_plugin,omitempty"`
+	OwnerModule string   `json:"owner_module,omitempty"`
 }
 
 type Capability struct {

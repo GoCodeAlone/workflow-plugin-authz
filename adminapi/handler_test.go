@@ -323,7 +323,7 @@ func (testProvider) UpsertRole(context.Context, Principal, RoleAssignment) error
 func (testProvider) DeleteRole(context.Context, Principal, RoleAssignment) error { return nil }
 
 func (testProvider) Scopes(context.Context, Principal) ([]Scope, error) {
-	return []Scope{{Name: "cms.page.read", Resource: "cms.page", Action: "read"}}, nil
+	return []Scope{{Name: "cms.page.read", Resource: "cms.page", Action: "read", Actions: []string{"read"}, Description: "Read pages", Category: "content"}}, nil
 }
 
 func (testProvider) Capabilities(context.Context, Principal) ([]Capability, error) {
