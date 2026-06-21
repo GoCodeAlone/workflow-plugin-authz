@@ -18,7 +18,8 @@ RBAC authorization plugin for the [workflow engine](https://github.com/GoCodeAlo
 
 Go hosts can mount the provider-neutral admin backend from `adminapi.NewHandler`
 instead of rebuilding authz JSON routes per application. The package serves the
-route contract consumed by `workflow-plugin-authz-ui`:
+route contract consumed by `workflow-plugin-authz-ui` under `Options.BasePath`
+(default `/api/authz`):
 
 - `/api/authz/roles`
 - `/api/authz/scopes`

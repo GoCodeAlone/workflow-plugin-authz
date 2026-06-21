@@ -31,12 +31,12 @@ func TestRouteCatalogContainsAuthzUIBackendEndpoints(t *testing.T) {
 	}
 }
 
-func TestNewHandlerRequiresPrincipalResolverAndAuthorizer(t *testing.T) {
+func TestNewHandlerRequiresRequiredAdapters(t *testing.T) {
 	_, err := NewHandler(Options{})
 	if err == nil {
 		t.Fatal("NewHandler without auth adapters succeeded")
 	}
-	for _, want := range []string{"PrincipalResolver", "Authorizer"} {
+	for _, want := range []string{"PrincipalResolver", "Authorizer", "Provider"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Fatalf("error %q missing %s", err.Error(), want)
 		}
@@ -73,7 +73,7 @@ func TestHandlerDeniesUnauthenticatedAndUnauthorizedRequests(t *testing.T) {
 	}
 }
 
-func TestHandlerServesRolesScopesCapabilitiesAndDeclarations(t *testing.T) {
+func TestHandlerServesAuthzUIReadRoutes(t *testing.T) {
 	h := newTestHandler(t)
 
 	for _, tc := range []struct {
@@ -107,6 +107,44 @@ func TestHandlerServesRolesScopesCapabilitiesAndDeclarations(t *testing.T) {
 				if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
 					t.Fatalf("decode object JSON: %v; body=%s", err, rec.Body.String())
 				}
+			}
+		})
+	}
+}
+
+func TestHandlerReturnsJSONErrorsForUnknownOrWrongMethodAdminAPIRequests(t *testing.T) {
+	h := newTestHandler(t)
+	for _, tc := range []struct {
+		name      string
+		method    string
+		path      string
+		wantCode  int
+		wantAllow string
+	}{
+		{name: "wrong method", method: http.MethodPut, path: "/api/authz/roles", wantCode: http.StatusMethodNotAllowed, wantAllow: "GET, POST, DELETE"},
+		{name: "unknown path", method: http.MethodGet, path: "/api/authz/missing", wantCode: http.StatusNotFound},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, httptest.NewRequest(tc.method, tc.path, nil))
+
+			if rec.Code != tc.wantCode {
+				t.Fatalf("status = %d, want %d body=%s", rec.Code, tc.wantCode, rec.Body.String())
+			}
+			if got := rec.Header().Get("Content-Type"); !strings.HasPrefix(got, "application/json") {
+				t.Fatalf("Content-Type = %q, want application/json", got)
+			}
+			if tc.wantAllow != "" && rec.Header().Get("Allow") != tc.wantAllow {
+				t.Fatalf("Allow = %q, want %q", rec.Header().Get("Allow"), tc.wantAllow)
+			}
+			var payload struct {
+				Error string `json:"error"`
+			}
+			if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode JSON error: %v body=%s", err, rec.Body.String())
+			}
+			if payload.Error == "" {
+				t.Fatalf("error payload missing message: %s", rec.Body.String())
 			}
 		})
 	}

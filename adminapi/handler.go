@@ -25,7 +25,42 @@ func NewHandler(options Options) (http.Handler, error) {
 }
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	requestPath := cleanPath(r.URL.Path)
+	if route, ok := h.routes.ByPath[r.Method+" "+requestPath]; ok {
+		h.dispatch(w, r, route)
+		return
+	}
+	if h.isAdminAPIPath(requestPath) {
+		if allow := h.allowedMethods(requestPath); len(allow) > 0 {
+			w.Header().Set("Allow", strings.Join(allow, ", "))
+			writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+			return
+		}
+		writeError(w, http.StatusNotFound, "not found")
+		return
+	}
 	h.mux.ServeHTTP(w, r)
+}
+
+func (h *handler) isAdminAPIPath(requestPath string) bool {
+	basePath := h.options.BasePath
+	return requestPath == basePath || strings.HasPrefix(requestPath, basePath+"/")
+}
+
+func (h *handler) allowedMethods(requestPath string) []string {
+	known := map[string]bool{}
+	for _, method := range []string{http.MethodGet, http.MethodHead, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete} {
+		if _, ok := h.routes.ByPath[method+" "+requestPath]; ok {
+			known[method] = true
+		}
+	}
+	methods := make([]string, 0, len(known))
+	for _, method := range []string{http.MethodGet, http.MethodHead, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete} {
+		if known[method] {
+			methods = append(methods, method)
+		}
+	}
+	return methods
 }
 
 func (c RouteCatalog) install(h *handler) {
