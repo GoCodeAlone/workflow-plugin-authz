@@ -24,6 +24,13 @@ type Role struct {
 	Scopes []string `json:"scopes,omitempty"`
 }
 
+type RoleAssignment struct {
+	User    string   `json:"user"`
+	Role    string   `json:"role"`
+	Context string   `json:"context,omitempty"`
+	Scopes  []string `json:"scopes,omitempty"`
+}
+
 type Scope struct {
 	Name     string `json:"name"`
 	Context  string `json:"context,omitempty"`
@@ -61,6 +68,12 @@ type Policy struct {
 	Resource string `json:"resource,omitempty"`
 	Action   string `json:"action,omitempty"`
 	Effect   string `json:"effect,omitempty"`
+}
+
+type PolicyRule struct {
+	Subject string `json:"subject"`
+	Object  string `json:"object"`
+	Action  string `json:"action"`
 }
 
 type AttributePolicy struct {
@@ -105,14 +118,22 @@ type Authorizer interface {
 
 type Provider interface {
 	Roles(context.Context, Principal) ([]Role, error)
+	UpsertRole(context.Context, Principal, RoleAssignment) error
+	DeleteRole(context.Context, Principal, RoleAssignment) error
 	Scopes(context.Context, Principal) ([]Scope, error)
 	Capabilities(context.Context, Principal) ([]Capability, error)
 	Declarations(context.Context, Principal) (Declarations, error)
 	ProjectionInputs(context.Context, Principal) (ProjectionInputs, error)
 	Model(context.Context, Principal) (Model, error)
 	Policies(context.Context, Principal) ([]Policy, error)
+	UpsertPolicy(context.Context, Principal, PolicyRule) error
+	DeletePolicy(context.Context, Principal, PolicyRule) error
 	AttributePolicies(context.Context, Principal) ([]AttributePolicy, error)
+	UpsertAttributePolicy(context.Context, Principal, AttributePolicy) error
+	DeleteAttributePolicy(context.Context, Principal, AttributePolicy) error
 	RelationTuples(context.Context, Principal) ([]RelationTuple, error)
+	UpsertRelationTuple(context.Context, Principal, RelationTuple) error
+	DeleteRelationTuple(context.Context, Principal, RelationTuple) error
 	CheckRelation(context.Context, Principal, RelationCheck) (Decision, error)
 	Enforce(context.Context, Principal, DecisionRequest) (Decision, error)
 }

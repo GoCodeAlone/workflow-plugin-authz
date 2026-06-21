@@ -77,18 +77,18 @@ func TestHandlerServesRolesScopesCapabilitiesAndDeclarations(t *testing.T) {
 	h := newTestHandler(t)
 
 	for _, tc := range []struct {
-		path string
-		key  string
+		path     string
+		wantType string
 	}{
-		{"/api/authz/roles", "roles"},
-		{"/api/authz/scopes", "scopes"},
-		{"/api/authz/capabilities", "capabilities"},
-		{"/api/authz/declarations", "declarations"},
-		{"/api/authz/projection-inputs", "projection_inputs"},
-		{"/api/authz/model", "model"},
-		{"/api/authz/policies", "policies"},
-		{"/api/authz/abac/policies", "policies"},
-		{"/api/authz/rebac/tuples", "tuples"},
+		{"/api/authz/roles", "array"},
+		{"/api/authz/scopes", "array"},
+		{"/api/authz/capabilities", "object"},
+		{"/api/authz/declarations", "object"},
+		{"/api/authz/projection-inputs", "object"},
+		{"/api/authz/model", "object"},
+		{"/api/authz/policies", "array"},
+		{"/api/authz/abac/policies", "array"},
+		{"/api/authz/rebac/tuples", "array"},
 	} {
 		t.Run(tc.path, func(t *testing.T) {
 			rec := httptest.NewRecorder()
@@ -96,12 +96,45 @@ func TestHandlerServesRolesScopesCapabilitiesAndDeclarations(t *testing.T) {
 			if rec.Code != http.StatusOK {
 				t.Fatalf("status = %d, want 200 body=%s", rec.Code, rec.Body.String())
 			}
-			var payload map[string]any
-			if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
-				t.Fatalf("decode JSON: %v", err)
+			switch tc.wantType {
+			case "array":
+				var payload []any
+				if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+					t.Fatalf("decode array JSON: %v; body=%s", err, rec.Body.String())
+				}
+			case "object":
+				var payload map[string]any
+				if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+					t.Fatalf("decode object JSON: %v; body=%s", err, rec.Body.String())
+				}
 			}
-			if _, ok := payload[tc.key]; !ok {
-				t.Fatalf("response for %s missing key %q: %s", tc.path, tc.key, rec.Body.String())
+		})
+	}
+}
+
+func TestHandlerSupportsAuthzUIMutationRoutes(t *testing.T) {
+	h := newTestHandler(t)
+	for _, tc := range []struct {
+		method string
+		path   string
+		body   string
+	}{
+		{http.MethodPost, "/api/authz/roles", `{"user":"admin-1","role":"tenant_admin","context":"admin","scopes":["admin:authz.roles:read"]}`},
+		{http.MethodDelete, "/api/authz/roles", `{"user":"admin-1","role":"tenant_admin","context":"admin"}`},
+		{http.MethodPost, "/api/authz/policies", `{"subject":"admin","object":"cms.page","action":"read"}`},
+		{http.MethodDelete, "/api/authz/policies", `{"subject":"admin","object":"cms.page","action":"read"}`},
+		{http.MethodPost, "/api/authz/abac/policies", `{"id":"abac-1","resource":"cms.page","action":"read","effect":"allow"}`},
+		{http.MethodDelete, "/api/authz/abac/policies", `{"id":"abac-1","resource":"cms.page","action":"read","effect":"allow"}`},
+		{http.MethodPost, "/api/authz/rebac/tuples", `{"subject":"user:admin-1","relation":"member","object":"tenant:blackorchid"}`},
+		{http.MethodDelete, "/api/authz/rebac/tuples", `{"subject":"user:admin-1","relation":"member","object":"tenant:blackorchid"}`},
+	} {
+		t.Run(tc.method+" "+tc.path, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.path, strings.NewReader(tc.body))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want 200 body=%s", rec.Code, rec.Body.String())
 			}
 		})
 	}
@@ -197,6 +230,10 @@ func (testProvider) Roles(context.Context, Principal) ([]Role, error) {
 	return []Role{{Name: "tenant_admin", Scopes: []string{"cms.page.read"}}}, nil
 }
 
+func (testProvider) UpsertRole(context.Context, Principal, RoleAssignment) error { return nil }
+
+func (testProvider) DeleteRole(context.Context, Principal, RoleAssignment) error { return nil }
+
 func (testProvider) Scopes(context.Context, Principal) ([]Scope, error) {
 	return []Scope{{Name: "cms.page.read", Resource: "cms.page", Action: "read"}}, nil
 }
@@ -221,12 +258,32 @@ func (testProvider) Policies(context.Context, Principal) ([]Policy, error) {
 	return []Policy{{ID: "policy-1", Resource: "cms.page", Action: "read", Effect: "allow"}}, nil
 }
 
+func (testProvider) UpsertPolicy(context.Context, Principal, PolicyRule) error { return nil }
+
+func (testProvider) DeletePolicy(context.Context, Principal, PolicyRule) error { return nil }
+
 func (testProvider) AttributePolicies(context.Context, Principal) ([]AttributePolicy, error) {
 	return []AttributePolicy{{ID: "abac-1", Resource: "cms.page", Action: "read", Effect: "allow"}}, nil
 }
 
+func (testProvider) UpsertAttributePolicy(context.Context, Principal, AttributePolicy) error {
+	return nil
+}
+
+func (testProvider) DeleteAttributePolicy(context.Context, Principal, AttributePolicy) error {
+	return nil
+}
+
 func (testProvider) RelationTuples(context.Context, Principal) ([]RelationTuple, error) {
 	return []RelationTuple{{Subject: "user:admin-1", Relation: "member", Object: "tenant:blackorchid"}}, nil
+}
+
+func (testProvider) UpsertRelationTuple(context.Context, Principal, RelationTuple) error {
+	return nil
+}
+
+func (testProvider) DeleteRelationTuple(context.Context, Principal, RelationTuple) error {
+	return nil
 }
 
 func (testProvider) CheckRelation(context.Context, Principal, RelationCheck) (Decision, error) {

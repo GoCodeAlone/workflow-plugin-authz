@@ -29,10 +29,27 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (c RouteCatalog) install(h *handler) {
-	for _, route := range c.ByPath {
-		route := route
-		h.mux.HandleFunc(route.Path, func(w http.ResponseWriter, r *http.Request) {
-			h.dispatch(w, r, route)
+	routesByPath := make(map[string][]Route)
+	for key, route := range c.ByPath {
+		if strings.Contains(key, " ") {
+			routesByPath[route.Path] = append(routesByPath[route.Path], route)
+		}
+	}
+	for routePath, routes := range routesByPath {
+		routes := routes
+		h.mux.HandleFunc(routePath, func(w http.ResponseWriter, r *http.Request) {
+			for _, route := range routes {
+				if route.Method == r.Method {
+					h.dispatch(w, r, route)
+					return
+				}
+			}
+			allow := make([]string, 0, len(routes))
+			for _, route := range routes {
+				allow = append(allow, route.Method)
+			}
+			w.Header().Set("Allow", strings.Join(allow, ", "))
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		})
 	}
 }
@@ -45,20 +62,31 @@ func RoutesForBasePath(basePath string) RouteCatalog {
 	basePath = cleanPath(basePath)
 	routes := []Route{
 		{Name: "roles", Method: http.MethodGet, Path: basePath + "/roles", Resource: "authz.roles", Action: "read"},
+		{Name: "roles-upsert", Method: http.MethodPost, Path: basePath + "/roles", Resource: "authz.roles", Action: "update"},
+		{Name: "roles-delete", Method: http.MethodDelete, Path: basePath + "/roles", Resource: "authz.roles", Action: "update"},
 		{Name: "scopes", Method: http.MethodGet, Path: basePath + "/scopes", Resource: "authz.scopes", Action: "read"},
 		{Name: "capabilities", Method: http.MethodGet, Path: basePath + "/capabilities", Resource: "authz.capabilities", Action: "read"},
 		{Name: "declarations", Method: http.MethodGet, Path: basePath + "/declarations", Resource: "authz.declarations", Action: "read"},
 		{Name: "projection-inputs", Method: http.MethodGet, Path: basePath + "/projection-inputs", Resource: "authz.projection", Action: "read"},
 		{Name: "model", Method: http.MethodGet, Path: basePath + "/model", Resource: "authz.model", Action: "read"},
 		{Name: "policies", Method: http.MethodGet, Path: basePath + "/policies", Resource: "authz.policies", Action: "read"},
+		{Name: "policies-upsert", Method: http.MethodPost, Path: basePath + "/policies", Resource: "authz.policies", Action: "update"},
+		{Name: "policies-delete", Method: http.MethodDelete, Path: basePath + "/policies", Resource: "authz.policies", Action: "update"},
 		{Name: "abac-policies", Method: http.MethodGet, Path: basePath + "/abac/policies", Resource: "authz.abac.policies", Action: "read"},
+		{Name: "abac-policies-upsert", Method: http.MethodPost, Path: basePath + "/abac/policies", Resource: "authz.abac.policies", Action: "update"},
+		{Name: "abac-policies-delete", Method: http.MethodDelete, Path: basePath + "/abac/policies", Resource: "authz.abac.policies", Action: "update"},
 		{Name: "rebac-tuples", Method: http.MethodGet, Path: basePath + "/rebac/tuples", Resource: "authz.rebac.tuples", Action: "read"},
+		{Name: "rebac-tuples-upsert", Method: http.MethodPost, Path: basePath + "/rebac/tuples", Resource: "authz.rebac.tuples", Action: "update"},
+		{Name: "rebac-tuples-delete", Method: http.MethodDelete, Path: basePath + "/rebac/tuples", Resource: "authz.rebac.tuples", Action: "update"},
 		{Name: "rebac-check", Method: http.MethodPost, Path: basePath + "/rebac/check", Resource: "authz.rebac", Action: "check"},
 		{Name: "enforce", Method: http.MethodPost, Path: basePath + "/enforce", Resource: "authz.decisions", Action: "enforce"},
 	}
-	byPath := make(map[string]Route, len(routes))
+	byPath := make(map[string]Route, len(routes)*2)
 	for _, route := range routes {
-		byPath[route.Path] = route
+		byPath[route.Method+" "+route.Path] = route
+		if _, exists := byPath[route.Path]; !exists || route.Method == http.MethodGet {
+			byPath[route.Path] = route
+		}
 	}
 	return RouteCatalog{ByPath: byPath}
 }
@@ -110,31 +138,79 @@ func (h *handler) serveRoute(w http.ResponseWriter, r *http.Request, principal P
 	switch route.Name {
 	case "roles":
 		items, err := h.options.Provider.Roles(r.Context(), principal)
-		writeProviderResult(w, map[string]any{"roles": items}, err)
+		writeProviderResult(w, items, err)
+	case "roles-upsert":
+		var input RoleAssignment
+		if !decodeRouteJSON(w, r, &input) {
+			return
+		}
+		writeProviderResult(w, map[string]any{"changed": true}, h.options.Provider.UpsertRole(r.Context(), principal, input))
+	case "roles-delete":
+		var input RoleAssignment
+		if !decodeRouteJSON(w, r, &input) {
+			return
+		}
+		writeProviderResult(w, map[string]any{"changed": true}, h.options.Provider.DeleteRole(r.Context(), principal, input))
 	case "scopes":
 		items, err := h.options.Provider.Scopes(r.Context(), principal)
-		writeProviderResult(w, map[string]any{"scopes": items}, err)
+		writeProviderResult(w, items, err)
 	case "capabilities":
 		items, err := h.options.Provider.Capabilities(r.Context(), principal)
 		writeProviderResult(w, map[string]any{"capabilities": items}, err)
 	case "declarations":
 		items, err := h.options.Provider.Declarations(r.Context(), principal)
-		writeProviderResult(w, map[string]any{"declarations": items}, err)
+		writeProviderResult(w, items, err)
 	case "projection-inputs":
 		items, err := h.options.Provider.ProjectionInputs(r.Context(), principal)
-		writeProviderResult(w, map[string]any{"projection_inputs": items}, err)
+		writeProviderResult(w, items, err)
 	case "model":
 		item, err := h.options.Provider.Model(r.Context(), principal)
-		writeProviderResult(w, map[string]any{"model": item}, err)
+		writeProviderResult(w, item, err)
 	case "policies":
 		items, err := h.options.Provider.Policies(r.Context(), principal)
-		writeProviderResult(w, map[string]any{"policies": items}, err)
+		writeProviderResult(w, items, err)
+	case "policies-upsert":
+		var input PolicyRule
+		if !decodeRouteJSON(w, r, &input) {
+			return
+		}
+		writeProviderResult(w, map[string]any{"changed": true}, h.options.Provider.UpsertPolicy(r.Context(), principal, input))
+	case "policies-delete":
+		var input PolicyRule
+		if !decodeRouteJSON(w, r, &input) {
+			return
+		}
+		writeProviderResult(w, map[string]any{"changed": true}, h.options.Provider.DeletePolicy(r.Context(), principal, input))
 	case "abac-policies":
 		items, err := h.options.Provider.AttributePolicies(r.Context(), principal)
-		writeProviderResult(w, map[string]any{"policies": items}, err)
+		writeProviderResult(w, items, err)
+	case "abac-policies-upsert":
+		var input AttributePolicy
+		if !decodeRouteJSON(w, r, &input) {
+			return
+		}
+		writeProviderResult(w, map[string]any{"changed": true}, h.options.Provider.UpsertAttributePolicy(r.Context(), principal, input))
+	case "abac-policies-delete":
+		var input AttributePolicy
+		if !decodeRouteJSON(w, r, &input) {
+			return
+		}
+		writeProviderResult(w, map[string]any{"changed": true}, h.options.Provider.DeleteAttributePolicy(r.Context(), principal, input))
 	case "rebac-tuples":
 		items, err := h.options.Provider.RelationTuples(r.Context(), principal)
-		writeProviderResult(w, map[string]any{"tuples": items}, err)
+		writeProviderResult(w, items, err)
+	case "rebac-tuples-upsert":
+		var input RelationTuple
+		if !decodeRouteJSON(w, r, &input) {
+			return
+		}
+		writeProviderResult(w, map[string]any{"changed": true}, h.options.Provider.UpsertRelationTuple(r.Context(), principal, input))
+	case "rebac-tuples-delete":
+		var input RelationTuple
+		if !decodeRouteJSON(w, r, &input) {
+			return
+		}
+		writeProviderResult(w, map[string]any{"changed": true}, h.options.Provider.DeleteRelationTuple(r.Context(), principal, input))
 	case "rebac-check":
 		var input RelationCheck
 		if err := decodeJSON(r, &input); err != nil {
@@ -154,6 +230,14 @@ func (h *handler) serveRoute(w http.ResponseWriter, r *http.Request, principal P
 	default:
 		writeError(w, http.StatusNotFound, "not found")
 	}
+}
+
+func decodeRouteJSON(w http.ResponseWriter, r *http.Request, out any) bool {
+	if err := decodeJSON(r, out); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON")
+		return false
+	}
+	return true
 }
 
 func writeProviderResult(w http.ResponseWriter, payload any, err error) {
