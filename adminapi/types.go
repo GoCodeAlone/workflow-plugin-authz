@@ -3,8 +3,11 @@ package adminapi
 
 import (
 	"context"
+	"errors"
 	"net/http"
 )
+
+var ErrInvalidRequest = errors.New("invalid authz request")
 
 type Options struct {
 	BasePath          string
@@ -32,10 +35,15 @@ type RoleAssignment struct {
 }
 
 type Scope struct {
-	Name     string `json:"name"`
-	Context  string `json:"context,omitempty"`
-	Resource string `json:"resource,omitempty"`
-	Action   string `json:"action,omitempty"`
+	Name        string   `json:"name"`
+	Context     string   `json:"context,omitempty"`
+	Resource    string   `json:"resource,omitempty"`
+	Action      string   `json:"action,omitempty"`
+	Actions     []string `json:"actions,omitempty"`
+	Description string   `json:"description,omitempty"`
+	Category    string   `json:"category,omitempty"`
+	OwnerPlugin string   `json:"owner_plugin,omitempty"`
+	OwnerModule string   `json:"owner_module,omitempty"`
 }
 
 type Capability struct {
@@ -136,6 +144,10 @@ type Provider interface {
 	DeleteRelationTuple(context.Context, Principal, RelationTuple) error
 	CheckRelation(context.Context, Principal, RelationCheck) (Decision, error)
 	Enforce(context.Context, Principal, DecisionRequest) (Decision, error)
+}
+
+type RoleAssignmentProvider interface {
+	RoleAssignments(context.Context, Principal) ([]RoleAssignment, error)
 }
 
 type RouteCatalog struct {

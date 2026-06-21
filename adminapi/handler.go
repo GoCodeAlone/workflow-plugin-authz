@@ -1,7 +1,9 @@
 package adminapi
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"path"
@@ -172,7 +174,7 @@ func (h *handler) dispatch(w http.ResponseWriter, r *http.Request, route Route) 
 func (h *handler) serveRoute(w http.ResponseWriter, r *http.Request, principal Principal, route Route) {
 	switch route.Name {
 	case "roles":
-		items, err := h.options.Provider.Roles(r.Context(), principal)
+		items, err := h.roleAssignments(r.Context(), principal)
 		writeProviderResult(w, items, err)
 	case "roles-upsert":
 		var input RoleAssignment
@@ -267,6 +269,26 @@ func (h *handler) serveRoute(w http.ResponseWriter, r *http.Request, principal P
 	}
 }
 
+func (h *handler) roleAssignments(ctx context.Context, principal Principal) ([]RoleAssignment, error) {
+	if provider, ok := h.options.Provider.(RoleAssignmentProvider); ok {
+		return provider.RoleAssignments(ctx, principal)
+	}
+	roles, err := h.options.Provider.Roles(ctx, principal)
+	if err != nil {
+		return nil, err
+	}
+	assignments := make([]RoleAssignment, 0, len(roles))
+	for _, role := range roles {
+		assignments = append(assignments, RoleAssignment{
+			User:    principal.Subject,
+			Role:    role.Name,
+			Context: "admin",
+			Scopes:  role.Scopes,
+		})
+	}
+	return assignments, nil
+}
+
 func decodeRouteJSON(w http.ResponseWriter, r *http.Request, out any) bool {
 	if err := decodeJSON(r, out); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON")
@@ -277,6 +299,10 @@ func decodeRouteJSON(w http.ResponseWriter, r *http.Request, out any) bool {
 
 func writeProviderResult(w http.ResponseWriter, payload any, err error) {
 	if err != nil {
+		if errors.Is(err, ErrInvalidRequest) {
+			writeError(w, http.StatusBadRequest, "invalid authz request")
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "authz provider unavailable")
 		return
 	}
