@@ -1,0 +1,238 @@
+package adminapi
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+)
+
+func TestRouteCatalogContainsAuthzUIBackendEndpoints(t *testing.T) {
+	routes := DefaultRoutes()
+	for _, want := range []string{
+		"/api/authz/roles",
+		"/api/authz/scopes",
+		"/api/authz/capabilities",
+		"/api/authz/declarations",
+		"/api/authz/projection-inputs",
+		"/api/authz/model",
+		"/api/authz/policies",
+		"/api/authz/abac/policies",
+		"/api/authz/rebac/tuples",
+		"/api/authz/rebac/check",
+		"/api/authz/enforce",
+	} {
+		if _, ok := routes.ByPath[want]; !ok {
+			t.Fatalf("route catalog missing %s; routes=%#v", want, routes.ByPath)
+		}
+	}
+}
+
+func TestNewHandlerRequiresPrincipalResolverAndAuthorizer(t *testing.T) {
+	_, err := NewHandler(Options{})
+	if err == nil {
+		t.Fatal("NewHandler without auth adapters succeeded")
+	}
+	for _, want := range []string{"PrincipalResolver", "Authorizer"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("error %q missing %s", err.Error(), want)
+		}
+	}
+}
+
+func TestHandlerDeniesUnauthenticatedAndUnauthorizedRequests(t *testing.T) {
+	h, err := NewHandler(Options{
+		PrincipalResolver: noPrincipal{},
+		Authorizer:        allowAuthorizer{},
+		Provider:          testProvider{},
+	})
+	if err != nil {
+		t.Fatalf("NewHandler: %v", err)
+	}
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/authz/roles", nil))
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated status = %d, want 401", rec.Code)
+	}
+
+	h, err = NewHandler(Options{
+		PrincipalResolver: fixedPrincipal{Principal{Subject: "user-1"}},
+		Authorizer:        denyAuthorizer{},
+		Provider:          testProvider{},
+	})
+	if err != nil {
+		t.Fatalf("NewHandler: %v", err)
+	}
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/authz/roles", nil))
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("unauthorized status = %d, want 403", rec.Code)
+	}
+}
+
+func TestHandlerServesRolesScopesCapabilitiesAndDeclarations(t *testing.T) {
+	h := newTestHandler(t)
+
+	for _, tc := range []struct {
+		path string
+		key  string
+	}{
+		{"/api/authz/roles", "roles"},
+		{"/api/authz/scopes", "scopes"},
+		{"/api/authz/capabilities", "capabilities"},
+		{"/api/authz/declarations", "declarations"},
+		{"/api/authz/projection-inputs", "projection_inputs"},
+		{"/api/authz/model", "model"},
+		{"/api/authz/policies", "policies"},
+		{"/api/authz/abac/policies", "policies"},
+		{"/api/authz/rebac/tuples", "tuples"},
+	} {
+		t.Run(tc.path, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, tc.path, nil))
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want 200 body=%s", rec.Code, rec.Body.String())
+			}
+			var payload map[string]any
+			if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+				t.Fatalf("decode JSON: %v", err)
+			}
+			if _, ok := payload[tc.key]; !ok {
+				t.Fatalf("response for %s missing key %q: %s", tc.path, tc.key, rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestHandlerEnforceUsesProviderDecision(t *testing.T) {
+	h := newTestHandler(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/authz/enforce", strings.NewReader(`{"subject":"user-1","resource":"cms.page","action":"read","context":"tenant:blackorchid"}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 body=%s", rec.Code, rec.Body.String())
+	}
+	var payload struct {
+		Allowed bool   `json:"allowed"`
+		Reason  string `json:"reason"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode JSON: %v", err)
+	}
+	if !payload.Allowed || payload.Reason != "matched test rule" {
+		t.Fatalf("payload = %#v, want allowed test decision", payload)
+	}
+}
+
+func TestHandlerRejectsClientAssertedSubjectWithoutPermission(t *testing.T) {
+	h, err := NewHandler(Options{
+		PrincipalResolver: fixedPrincipal{Principal{Subject: "user-1"}},
+		Authorizer:        actionDenyAuthorizer{denyAction: "enforce"},
+		Provider:          testProvider{},
+	})
+	if err != nil {
+		t.Fatalf("NewHandler: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/api/authz/enforce", strings.NewReader(`{"subject":"super-admin","resource":"cms.page","action":"delete"}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403 body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func newTestHandler(t *testing.T) http.Handler {
+	t.Helper()
+	h, err := NewHandler(Options{
+		PrincipalResolver: fixedPrincipal{Principal{Subject: "admin-1"}},
+		Authorizer:        allowAuthorizer{},
+		Provider:          testProvider{},
+	})
+	if err != nil {
+		t.Fatalf("NewHandler: %v", err)
+	}
+	return h
+}
+
+type noPrincipal struct{}
+
+func (noPrincipal) CurrentPrincipal(*http.Request) (Principal, bool) { return Principal{}, false }
+
+type fixedPrincipal struct{ principal Principal }
+
+func (r fixedPrincipal) CurrentPrincipal(*http.Request) (Principal, bool) {
+	return r.principal, true
+}
+
+type allowAuthorizer struct{}
+
+func (allowAuthorizer) Authorize(context.Context, Principal, string, string) error { return nil }
+
+type denyAuthorizer struct{}
+
+func (denyAuthorizer) Authorize(context.Context, Principal, string, string) error {
+	return errors.New("denied")
+}
+
+type actionDenyAuthorizer struct{ denyAction string }
+
+func (a actionDenyAuthorizer) Authorize(_ context.Context, _ Principal, _ string, action string) error {
+	if action == a.denyAction {
+		return errors.New("denied")
+	}
+	return nil
+}
+
+type testProvider struct{}
+
+func (testProvider) Roles(context.Context, Principal) ([]Role, error) {
+	return []Role{{Name: "tenant_admin", Scopes: []string{"cms.page.read"}}}, nil
+}
+
+func (testProvider) Scopes(context.Context, Principal) ([]Scope, error) {
+	return []Scope{{Name: "cms.page.read", Resource: "cms.page", Action: "read"}}, nil
+}
+
+func (testProvider) Capabilities(context.Context, Principal) ([]Capability, error) {
+	return []Capability{{Name: "rbac", Supported: true}}, nil
+}
+
+func (testProvider) Declarations(context.Context, Principal) (Declarations, error) {
+	return Declarations{Resources: []ResourceDeclaration{{Name: "cms.page", Actions: []string{"read"}}}}, nil
+}
+
+func (testProvider) ProjectionInputs(context.Context, Principal) (ProjectionInputs, error) {
+	return ProjectionInputs{Subject: "admin-1", Contexts: []string{"tenant:blackorchid"}}, nil
+}
+
+func (testProvider) Model(context.Context, Principal) (Model, error) {
+	return Model{Provider: "test", Modes: []string{"rbac"}}, nil
+}
+
+func (testProvider) Policies(context.Context, Principal) ([]Policy, error) {
+	return []Policy{{ID: "policy-1", Resource: "cms.page", Action: "read", Effect: "allow"}}, nil
+}
+
+func (testProvider) AttributePolicies(context.Context, Principal) ([]AttributePolicy, error) {
+	return []AttributePolicy{{ID: "abac-1", Resource: "cms.page", Action: "read", Effect: "allow"}}, nil
+}
+
+func (testProvider) RelationTuples(context.Context, Principal) ([]RelationTuple, error) {
+	return []RelationTuple{{Subject: "user:admin-1", Relation: "member", Object: "tenant:blackorchid"}}, nil
+}
+
+func (testProvider) CheckRelation(context.Context, Principal, RelationCheck) (Decision, error) {
+	return Decision{Allowed: true, Reason: "matched relation"}, nil
+}
+
+func (testProvider) Enforce(context.Context, Principal, DecisionRequest) (Decision, error) {
+	return Decision{Allowed: true, Reason: "matched test rule"}, nil
+}

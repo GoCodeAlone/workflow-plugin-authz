@@ -14,6 +14,39 @@ RBAC authorization plugin for the [workflow engine](https://github.com/GoCodeAlo
 | Step | `step.authz_remove_policy` |
 | Step | `step.authz_role_assign` |
 
+## Reusable admin API
+
+Go hosts can mount the provider-neutral admin backend from `adminapi.NewHandler`
+instead of rebuilding authz JSON routes per application. The package serves the
+route contract consumed by `workflow-plugin-authz-ui`:
+
+- `/api/authz/roles`
+- `/api/authz/scopes`
+- `/api/authz/capabilities`
+- `/api/authz/declarations`
+- `/api/authz/projection-inputs`
+- `/api/authz/model`
+- `/api/authz/policies`
+- `/api/authz/abac/policies`
+- `/api/authz/rebac/tuples`
+- `/api/authz/rebac/check`
+- `/api/authz/enforce`
+
+The host supplies typed adapters for principal resolution, authorization, and
+provider data. Enforcement remains server-side: the handler authorizes the
+authenticated principal for each backend action before reading request bodies or
+calling the provider. Client-supplied subjects are decision inputs, not proof of
+authority.
+
+```go
+handler, err := adminapi.NewHandler(adminapi.Options{
+    BasePath:          "/api/v1/admin/authz",
+    PrincipalResolver: hostPrincipalResolver,
+    Authorizer:        hostAuthorizer,
+    Provider:          hostAuthzProvider,
+})
+```
+
 ## authz.casbin module
 
 Loads a Casbin PERM model and policy from inline YAML config. The enforcer is thread-safe and shared with all `step.authz_check_casbin` steps that reference the module by name.
