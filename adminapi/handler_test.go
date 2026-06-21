@@ -128,6 +128,34 @@ func TestRolesReadReturnsRoleAssignmentsForAuthzUI(t *testing.T) {
 	if len(assignments) != 1 || assignments[0].User != "admin-1" || assignments[0].Role != "tenant_admin" || assignments[0].Context != "admin" {
 		t.Fatalf("assignments = %#v, want admin-1 tenant_admin in admin context", assignments)
 	}
+	if len(assignments[0].Scopes) != 1 || assignments[0].Scopes[0] != "cms.page.read" {
+		t.Fatalf("assignment scopes = %#v, want cms.page.read", assignments[0].Scopes)
+	}
+}
+
+func TestRolesReadFallsBackToLegacyRoleDefinitions(t *testing.T) {
+	h, err := NewHandler(Options{
+		PrincipalResolver: fixedPrincipal{Principal{Subject: "admin-1"}},
+		Authorizer:        allowAuthorizer{},
+		Provider:          legacyRoleProvider{},
+	})
+	if err != nil {
+		t.Fatalf("NewHandler: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/authz/roles", nil))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 body=%s", rec.Code, rec.Body.String())
+	}
+	var assignments []RoleAssignment
+	if err := json.Unmarshal(rec.Body.Bytes(), &assignments); err != nil {
+		t.Fatal(err)
+	}
+	if len(assignments) != 1 || assignments[0].Role != "tenant_admin" || len(assignments[0].Scopes) != 1 {
+		t.Fatalf("assignments = %#v, want role-definition fallback", assignments)
+	}
 }
 
 func TestHandlerReturnsJSONErrorsForUnknownOrWrongMethodAdminAPIRequests(t *testing.T) {
@@ -282,7 +310,11 @@ func (a actionDenyAuthorizer) Authorize(_ context.Context, _ Principal, _ string
 
 type testProvider struct{}
 
-func (testProvider) Roles(context.Context, Principal) ([]RoleAssignment, error) {
+func (testProvider) Roles(context.Context, Principal) ([]Role, error) {
+	return []Role{{Name: "tenant_admin", Scopes: []string{"cms.page.read"}}}, nil
+}
+
+func (testProvider) RoleAssignments(context.Context, Principal) ([]RoleAssignment, error) {
 	return []RoleAssignment{{User: "admin-1", Role: "tenant_admin", Context: "admin", Scopes: []string{"cms.page.read"}}}, nil
 }
 
@@ -348,4 +380,82 @@ func (testProvider) CheckRelation(context.Context, Principal, RelationCheck) (De
 
 func (testProvider) Enforce(context.Context, Principal, DecisionRequest) (Decision, error) {
 	return Decision{Allowed: true, Reason: "matched test rule"}, nil
+}
+
+type legacyRoleProvider struct{}
+
+func (legacyRoleProvider) Roles(context.Context, Principal) ([]Role, error) {
+	return []Role{{Name: "tenant_admin", Scopes: []string{"cms.page.read"}}}, nil
+}
+
+func (legacyRoleProvider) UpsertRole(ctx context.Context, p Principal, r RoleAssignment) error {
+	return testProvider{}.UpsertRole(ctx, p, r)
+}
+
+func (legacyRoleProvider) DeleteRole(ctx context.Context, p Principal, r RoleAssignment) error {
+	return testProvider{}.DeleteRole(ctx, p, r)
+}
+
+func (legacyRoleProvider) Scopes(ctx context.Context, p Principal) ([]Scope, error) {
+	return testProvider{}.Scopes(ctx, p)
+}
+
+func (legacyRoleProvider) Capabilities(ctx context.Context, p Principal) ([]Capability, error) {
+	return testProvider{}.Capabilities(ctx, p)
+}
+
+func (legacyRoleProvider) Declarations(ctx context.Context, p Principal) (Declarations, error) {
+	return testProvider{}.Declarations(ctx, p)
+}
+
+func (legacyRoleProvider) ProjectionInputs(ctx context.Context, p Principal) (ProjectionInputs, error) {
+	return testProvider{}.ProjectionInputs(ctx, p)
+}
+
+func (legacyRoleProvider) Model(ctx context.Context, p Principal) (Model, error) {
+	return testProvider{}.Model(ctx, p)
+}
+
+func (legacyRoleProvider) Policies(ctx context.Context, p Principal) ([]Policy, error) {
+	return testProvider{}.Policies(ctx, p)
+}
+
+func (legacyRoleProvider) UpsertPolicy(ctx context.Context, p Principal, r PolicyRule) error {
+	return testProvider{}.UpsertPolicy(ctx, p, r)
+}
+
+func (legacyRoleProvider) DeletePolicy(ctx context.Context, p Principal, r PolicyRule) error {
+	return testProvider{}.DeletePolicy(ctx, p, r)
+}
+
+func (legacyRoleProvider) AttributePolicies(ctx context.Context, p Principal) ([]AttributePolicy, error) {
+	return testProvider{}.AttributePolicies(ctx, p)
+}
+
+func (legacyRoleProvider) UpsertAttributePolicy(ctx context.Context, p Principal, policy AttributePolicy) error {
+	return testProvider{}.UpsertAttributePolicy(ctx, p, policy)
+}
+
+func (legacyRoleProvider) DeleteAttributePolicy(ctx context.Context, p Principal, policy AttributePolicy) error {
+	return testProvider{}.DeleteAttributePolicy(ctx, p, policy)
+}
+
+func (legacyRoleProvider) RelationTuples(ctx context.Context, p Principal) ([]RelationTuple, error) {
+	return testProvider{}.RelationTuples(ctx, p)
+}
+
+func (legacyRoleProvider) UpsertRelationTuple(ctx context.Context, p Principal, tuple RelationTuple) error {
+	return testProvider{}.UpsertRelationTuple(ctx, p, tuple)
+}
+
+func (legacyRoleProvider) DeleteRelationTuple(ctx context.Context, p Principal, tuple RelationTuple) error {
+	return testProvider{}.DeleteRelationTuple(ctx, p, tuple)
+}
+
+func (legacyRoleProvider) CheckRelation(ctx context.Context, p Principal, check RelationCheck) (Decision, error) {
+	return testProvider{}.CheckRelation(ctx, p, check)
+}
+
+func (legacyRoleProvider) Enforce(ctx context.Context, p Principal, req DecisionRequest) (Decision, error) {
+	return testProvider{}.Enforce(ctx, p, req)
 }

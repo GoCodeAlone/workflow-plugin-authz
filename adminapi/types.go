@@ -117,7 +117,7 @@ type Authorizer interface {
 }
 
 type Provider interface {
-	Roles(context.Context, Principal) ([]RoleAssignment, error)
+	Roles(context.Context, Principal) ([]Role, error)
 	UpsertRole(context.Context, Principal, RoleAssignment) error
 	DeleteRole(context.Context, Principal, RoleAssignment) error
 	Scopes(context.Context, Principal) ([]Scope, error)
@@ -136,6 +136,10 @@ type Provider interface {
 	DeleteRelationTuple(context.Context, Principal, RelationTuple) error
 	CheckRelation(context.Context, Principal, RelationCheck) (Decision, error)
 	Enforce(context.Context, Principal, DecisionRequest) (Decision, error)
+}
+
+type RoleAssignmentProvider interface {
+	RoleAssignments(context.Context, Principal) ([]RoleAssignment, error)
 }
 
 type RouteCatalog struct {

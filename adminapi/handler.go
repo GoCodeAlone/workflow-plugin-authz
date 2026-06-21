@@ -1,6 +1,7 @@
 package adminapi
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -172,7 +173,7 @@ func (h *handler) dispatch(w http.ResponseWriter, r *http.Request, route Route) 
 func (h *handler) serveRoute(w http.ResponseWriter, r *http.Request, principal Principal, route Route) {
 	switch route.Name {
 	case "roles":
-		items, err := h.options.Provider.Roles(r.Context(), principal)
+		items, err := h.roleAssignments(r.Context(), principal)
 		writeProviderResult(w, items, err)
 	case "roles-upsert":
 		var input RoleAssignment
@@ -265,6 +266,21 @@ func (h *handler) serveRoute(w http.ResponseWriter, r *http.Request, principal P
 	default:
 		writeError(w, http.StatusNotFound, "not found")
 	}
+}
+
+func (h *handler) roleAssignments(ctx context.Context, principal Principal) ([]RoleAssignment, error) {
+	if provider, ok := h.options.Provider.(RoleAssignmentProvider); ok {
+		return provider.RoleAssignments(ctx, principal)
+	}
+	roles, err := h.options.Provider.Roles(ctx, principal)
+	if err != nil {
+		return nil, err
+	}
+	assignments := make([]RoleAssignment, 0, len(roles))
+	for _, role := range roles {
+		assignments = append(assignments, RoleAssignment{Role: role.Name, Scopes: role.Scopes})
+	}
+	return assignments, nil
 }
 
 func decodeRouteJSON(w http.ResponseWriter, r *http.Request, out any) bool {
