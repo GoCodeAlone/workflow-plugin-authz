@@ -279,7 +279,12 @@ func (h *handler) roleAssignments(ctx context.Context, principal Principal) ([]R
 	}
 	assignments := make([]RoleAssignment, 0, len(roles))
 	for _, role := range roles {
-		assignments = append(assignments, RoleAssignment{Role: role.Name, Scopes: role.Scopes})
+		assignments = append(assignments, RoleAssignment{
+			User:    principal.Subject,
+			Role:    role.Name,
+			Context: "admin",
+			Scopes:  role.Scopes,
+		})
 	}
 	return assignments, nil
 }

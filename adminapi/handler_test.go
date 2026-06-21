@@ -153,7 +153,7 @@ func TestRolesReadFallsBackToLegacyRoleDefinitions(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &assignments); err != nil {
 		t.Fatal(err)
 	}
-	if len(assignments) != 1 || assignments[0].Role != "tenant_admin" || len(assignments[0].Scopes) != 1 {
+	if len(assignments) != 1 || assignments[0].User != "admin-1" || assignments[0].Role != "tenant_admin" || assignments[0].Context != "admin" || len(assignments[0].Scopes) != 1 {
 		t.Fatalf("assignments = %#v, want role-definition fallback", assignments)
 	}
 }
@@ -400,6 +400,8 @@ func (testProvider) Enforce(context.Context, Principal, DecisionRequest) (Decisi
 	return Decision{Allowed: true, Reason: "matched test rule"}, nil
 }
 
+// legacyRoleProvider intentionally does not embed testProvider because
+// testProvider implements RoleAssignmentProvider and would bypass this fallback.
 type legacyRoleProvider struct{}
 
 func (legacyRoleProvider) Roles(context.Context, Principal) ([]Role, error) {
