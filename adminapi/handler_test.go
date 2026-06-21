@@ -112,6 +112,24 @@ func TestHandlerServesAuthzUIReadRoutes(t *testing.T) {
 	}
 }
 
+func TestRolesReadReturnsRoleAssignmentsForAuthzUI(t *testing.T) {
+	h := newTestHandler(t)
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/authz/roles", nil))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 body=%s", rec.Code, rec.Body.String())
+	}
+	var assignments []RoleAssignment
+	if err := json.Unmarshal(rec.Body.Bytes(), &assignments); err != nil {
+		t.Fatalf("decode role assignments: %v", err)
+	}
+	if len(assignments) != 1 || assignments[0].User != "admin-1" || assignments[0].Role != "tenant_admin" || assignments[0].Context != "admin" {
+		t.Fatalf("assignments = %#v, want admin-1 tenant_admin in admin context", assignments)
+	}
+}
+
 func TestHandlerReturnsJSONErrorsForUnknownOrWrongMethodAdminAPIRequests(t *testing.T) {
 	h := newTestHandler(t)
 	for _, tc := range []struct {
@@ -264,8 +282,8 @@ func (a actionDenyAuthorizer) Authorize(_ context.Context, _ Principal, _ string
 
 type testProvider struct{}
 
-func (testProvider) Roles(context.Context, Principal) ([]Role, error) {
-	return []Role{{Name: "tenant_admin", Scopes: []string{"cms.page.read"}}}, nil
+func (testProvider) Roles(context.Context, Principal) ([]RoleAssignment, error) {
+	return []RoleAssignment{{User: "admin-1", Role: "tenant_admin", Context: "admin", Scopes: []string{"cms.page.read"}}}, nil
 }
 
 func (testProvider) UpsertRole(context.Context, Principal, RoleAssignment) error { return nil }

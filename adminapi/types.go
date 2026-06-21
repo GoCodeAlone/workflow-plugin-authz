@@ -117,7 +117,7 @@ type Authorizer interface {
 }
 
 type Provider interface {
-	Roles(context.Context, Principal) ([]Role, error)
+	Roles(context.Context, Principal) ([]RoleAssignment, error)
 	UpsertRole(context.Context, Principal, RoleAssignment) error
 	DeleteRole(context.Context, Principal, RoleAssignment) error
 	Scopes(context.Context, Principal) ([]Scope, error)
