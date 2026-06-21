@@ -3,6 +3,7 @@ package adminapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"path"
@@ -293,6 +294,10 @@ func decodeRouteJSON(w http.ResponseWriter, r *http.Request, out any) bool {
 
 func writeProviderResult(w http.ResponseWriter, payload any, err error) {
 	if err != nil {
+		if errors.Is(err, ErrInvalidRequest) {
+			writeError(w, http.StatusBadRequest, "invalid authz request")
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "authz provider unavailable")
 		return
 	}

@@ -3,8 +3,11 @@ package adminapi
 
 import (
 	"context"
+	"errors"
 	"net/http"
 )
+
+var ErrInvalidRequest = errors.New("invalid authz request")
 
 type Options struct {
 	BasePath          string

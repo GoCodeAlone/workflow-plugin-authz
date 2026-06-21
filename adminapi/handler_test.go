@@ -196,6 +196,24 @@ func TestHandlerReturnsJSONErrorsForUnknownOrWrongMethodAdminAPIRequests(t *test
 	}
 }
 
+func TestProviderInvalidRequestReturnsBadRequest(t *testing.T) {
+	h, err := NewHandler(Options{
+		PrincipalResolver: fixedPrincipal{Principal{Subject: "admin-1"}},
+		Authorizer:        allowAuthorizer{},
+		Provider:          invalidRoleProvider{},
+	})
+	if err != nil {
+		t.Fatalf("NewHandler: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/authz/roles", strings.NewReader(`{"user":"admin-1","role":"tenant_editor"}`)))
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400 body=%s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestHandlerSupportsAuthzUIMutationRoutes(t *testing.T) {
 	h := newTestHandler(t)
 	for _, tc := range []struct {
@@ -458,4 +476,10 @@ func (legacyRoleProvider) CheckRelation(ctx context.Context, p Principal, check 
 
 func (legacyRoleProvider) Enforce(ctx context.Context, p Principal, req DecisionRequest) (Decision, error) {
 	return testProvider{}.Enforce(ctx, p, req)
+}
+
+type invalidRoleProvider struct{ testProvider }
+
+func (invalidRoleProvider) UpsertRole(context.Context, Principal, RoleAssignment) error {
+	return ErrInvalidRequest
 }
