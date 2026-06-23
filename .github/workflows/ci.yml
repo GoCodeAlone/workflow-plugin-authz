@@ -27,10 +27,14 @@ jobs:
         run: git config --global url."https://${{ secrets.RELEASES_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
       - name: Resolve dependencies
-        run: go mod tidy
+        run: |
+          go mod tidy
+          (cd authzcontract && go mod tidy)
 
       - name: Run go vet
-        run: go vet ./...
+        run: |
+          go vet ./...
+          (cd authzcontract && go vet ./...)
 
       - name: Run go fmt check
         run: |
@@ -55,10 +59,14 @@ jobs:
         run: git config --global url."https://${{ secrets.RELEASES_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
       - name: Resolve dependencies
-        run: go mod tidy
+        run: |
+          go mod tidy
+          (cd authzcontract && go mod tidy)
 
       - name: Run tests
-        run: go test ./... -v -race
+        run: |
+          go test ./... -v -race
+          (cd authzcontract && go test ./... -v -race)
 
   build:
     name: Cross-platform Build
