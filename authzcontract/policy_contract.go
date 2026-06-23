@@ -32,7 +32,11 @@ func NormalizeCasbinPolicyConfig(policy CasbinPolicyConfig) (CasbinPolicyConfig,
 		return CasbinPolicyConfig{}, fmt.Errorf("unsupported authorization policy type %q (supported: %q)", policy.Type, CasbinModuleType)
 	}
 	policy.Model = strings.TrimSpace(policy.Model)
-	policy.DefaultEffect = normalizeEffect(policy.DefaultEffect)
+	rawDefaultEffect := strings.TrimSpace(policy.DefaultEffect)
+	policy.DefaultEffect = normalizeEffect(rawDefaultEffect)
+	if rawDefaultEffect != "" && policy.DefaultEffect == "" {
+		return CasbinPolicyConfig{}, fmt.Errorf("unsupported default_effect %q (supported: %q or %q)", rawDefaultEffect, EffectAllow, EffectDeny)
+	}
 	policy.Policies = cloneStringRows(policy.Policies)
 	policy.RoleAssignments = append(cloneStringRows(policy.RoleAssignments), cloneStringRows(policy.RoleAssignmentsCamel)...)
 	policy.RoleAssignmentsCamel = nil
