@@ -33,7 +33,7 @@ func TestPublicCasbinPolicyContractNormalizesPluginWrapper(t *testing.T) {
 		t.Fatalf("Config should be flattened after normalization: %+v", got.Config)
 	}
 	if got.Model != "workflow-compute-rbac" {
-		t.Fatalf("Model=%q", got.Model)
+		t.Fatalf("Model=%q, want %q", got.Model, "workflow-compute-rbac")
 	}
 	if got.DefaultEffect != EffectDeny {
 		t.Fatalf("DefaultEffect=%q, want %q", got.DefaultEffect, EffectDeny)

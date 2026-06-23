@@ -29,7 +29,7 @@ func NormalizeCasbinPolicyConfig(policy CasbinPolicyConfig) (CasbinPolicyConfig,
 		policy.Type = CasbinModuleType
 	}
 	if policy.Type != CasbinModuleType {
-		return CasbinPolicyConfig{}, fmt.Errorf("unsupported authorization policy type %q", policy.Type)
+		return CasbinPolicyConfig{}, fmt.Errorf("unsupported authorization policy type %q (supported: %q)", policy.Type, CasbinModuleType)
 	}
 	policy.Model = strings.TrimSpace(policy.Model)
 	policy.DefaultEffect = normalizeEffect(policy.DefaultEffect)
