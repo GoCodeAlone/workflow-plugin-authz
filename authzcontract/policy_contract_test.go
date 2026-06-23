@@ -53,6 +53,13 @@ func TestPublicCasbinPolicyContractRejectsUnsupportedType(t *testing.T) {
 	}
 }
 
+func TestPublicCasbinPolicyContractRejectsUnsupportedDefaultEffect(t *testing.T) {
+	_, err := NormalizeCasbinPolicyConfig(CasbinPolicyConfig{DefaultEffect: "bananas"})
+	if err == nil {
+		t.Fatal("expected unsupported default effect to fail")
+	}
+}
+
 func TestPublicCasbinPolicyContractNestedConfigOverridesWrapperDefaultEffect(t *testing.T) {
 	got, err := NormalizeCasbinPolicyConfig(CasbinPolicyConfig{
 		DefaultEffect: EffectAllow,
