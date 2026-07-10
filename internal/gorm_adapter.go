@@ -60,13 +60,13 @@ type GORMFilter struct {
 // with a per-table name ("uidx_<tableName>").
 type casbinRule struct {
 	ID    uint   `gorm:"primarykey;autoIncrement"`
-	Ptype string `gorm:"size:512"`
-	V0    string `gorm:"size:512"`
-	V1    string `gorm:"size:512"`
-	V2    string `gorm:"size:512"`
-	V3    string `gorm:"size:512"`
-	V4    string `gorm:"size:512"`
-	V5    string `gorm:"size:512"`
+	Ptype string `gorm:"size:512;not null"`
+	V0    string `gorm:"size:512;not null"`
+	V1    string `gorm:"size:512;not null"`
+	V2    string `gorm:"size:512;not null"`
+	V3    string `gorm:"size:512;not null"`
+	V4    string `gorm:"size:512;not null"`
+	V5    string `gorm:"size:512;not null"`
 }
 
 // TableName returns the default gorm table name.
