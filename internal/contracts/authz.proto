@@ -19,7 +19,7 @@ message AdapterConfig {
   string tenant = 6;
   string filter_field = 7;
   string filter_value = 8;
-  string migration_mode = 9;
+  optional string migration_mode = 9;
 }
 
 message WatcherConfig {

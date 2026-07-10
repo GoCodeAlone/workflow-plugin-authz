@@ -62,7 +62,9 @@ type adapterConfig struct {
 	FilterField string `yaml:"filter_field"`
 	FilterValue string `yaml:"filter_value"`
 
-	// MigrationMode controls whether the adapter updates or only validates the schema.
+	// MigrationMode controls whether the adapter updates or only validates the
+	// schema. Strict validation supports PostgreSQL and SQLite; legacy MySQL
+	// configurations remain auto-migration only.
 	MigrationMode MigrationMode `yaml:"migration_mode"`
 }
 

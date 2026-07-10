@@ -8,13 +8,14 @@ import (
 
 // MigrationMode controls whether the runtime owns schema migration or only
 // validates a schema owned by the host application.
-type MigrationMode = internal.MigrationMode
+type MigrationMode string
 
 const (
 	// MigrationModeAuto creates or updates the policy schema before loading it.
-	MigrationModeAuto = internal.MigrationModeAuto
-	// MigrationModeValidate verifies the policy schema without executing DDL.
-	MigrationModeValidate = internal.MigrationModeValidate
+	MigrationModeAuto MigrationMode = "auto"
+	// MigrationModeValidate verifies PostgreSQL or SQLite without executing DDL.
+	// MySQL remains compatible with MigrationModeAuto only.
+	MigrationModeValidate MigrationMode = "validate"
 )
 
 // StorageConfig describes persistent policy storage for a standalone runtime.
@@ -39,7 +40,7 @@ func (c RuntimeConfig) Validate() error {
 	if c.Storage == nil {
 		return nil
 	}
-	if err := internal.ValidateMigrationMode(c.Storage.MigrationMode); err != nil {
+	if err := internal.ValidateMigrationMode(internal.MigrationMode(c.Storage.MigrationMode)); err != nil {
 		return fmt.Errorf("authz runtime: %w", err)
 	}
 	return nil
@@ -48,5 +49,6 @@ func (c RuntimeConfig) Validate() error {
 // DecodeMigrationMode decodes migration_mode from a raw YAML/module config.
 // Only an absent field receives the legacy-compatible auto default.
 func DecodeMigrationMode(raw map[string]any) (MigrationMode, error) {
-	return internal.DecodeMigrationMode(raw)
+	mode, err := internal.DecodeMigrationMode(raw)
+	return MigrationMode(mode), err
 }

@@ -189,7 +189,7 @@ type AdapterConfig struct {
 	Tenant        string                 `protobuf:"bytes,6,opt,name=tenant,proto3" json:"tenant,omitempty"`
 	FilterField   string                 `protobuf:"bytes,7,opt,name=filter_field,json=filterField,proto3" json:"filter_field,omitempty"`
 	FilterValue   string                 `protobuf:"bytes,8,opt,name=filter_value,json=filterValue,proto3" json:"filter_value,omitempty"`
-	MigrationMode string                 `protobuf:"bytes,9,opt,name=migration_mode,json=migrationMode,proto3" json:"migration_mode,omitempty"`
+	MigrationMode *string                `protobuf:"bytes,9,opt,name=migration_mode,json=migrationMode,proto3,oneof" json:"migration_mode,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -281,8 +281,8 @@ func (x *AdapterConfig) GetFilterValue() string {
 }
 
 func (x *AdapterConfig) GetMigrationMode() string {
-	if x != nil {
-		return x.MigrationMode
+	if x != nil && x.MigrationMode != nil {
+		return *x.MigrationMode
 	}
 	return ""
 }
@@ -6746,7 +6746,7 @@ const file_internal_contracts_authz_proto_rawDesc = "" +
 	"\x1einternal/contracts/authz.proto\x12\x19workflow.plugins.authz.v1\x1a\x1cgoogle/protobuf/struct.proto\"$\n" +
 	"\n" +
 	"StringList\x12\x16\n" +
-	"\x06values\x18\x01 \x03(\tR\x06values\"\x85\x02\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"\x9d\x02\n" +
 	"\rAdapterConfig\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x12\n" +
 	"\x04path\x18\x02 \x01(\tR\x04path\x12\x16\n" +
@@ -6756,8 +6756,9 @@ const file_internal_contracts_authz_proto_rawDesc = "" +
 	"table_name\x18\x05 \x01(\tR\ttableName\x12\x16\n" +
 	"\x06tenant\x18\x06 \x01(\tR\x06tenant\x12!\n" +
 	"\ffilter_field\x18\a \x01(\tR\vfilterField\x12!\n" +
-	"\ffilter_value\x18\b \x01(\tR\vfilterValue\x12%\n" +
-	"\x0emigration_mode\x18\t \x01(\tR\rmigrationMode\"?\n" +
+	"\ffilter_value\x18\b \x01(\tR\vfilterValue\x12*\n" +
+	"\x0emigration_mode\x18\t \x01(\tH\x00R\rmigrationMode\x88\x01\x01B\x11\n" +
+	"\x0f_migration_mode\"?\n" +
 	"\rWatcherConfig\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12\x1a\n" +
 	"\binterval\x18\x02 \x01(\tR\binterval\"\xc7\x02\n" +
@@ -7484,6 +7485,7 @@ func file_internal_contracts_authz_proto_init() {
 	if File_internal_contracts_authz_proto != nil {
 		return
 	}
+	file_internal_contracts_authz_proto_msgTypes[1].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

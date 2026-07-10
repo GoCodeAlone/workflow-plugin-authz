@@ -23,17 +23,21 @@ func casbinModuleConfigToMap(cfg *contracts.CasbinModuleConfig) map[string]any {
 		out["roleAssignments"] = assignments
 	}
 	if adapter := cfg.GetAdapter(); adapter != nil {
-		out["adapter"] = compactMap(map[string]any{
-			"type":           adapter.GetType(),
-			"path":           adapter.GetPath(),
-			"driver":         adapter.GetDriver(),
-			"dsn":            adapter.GetDsn(),
-			"table_name":     adapter.GetTableName(),
-			"tenant":         adapter.GetTenant(),
-			"filter_field":   adapter.GetFilterField(),
-			"filter_value":   adapter.GetFilterValue(),
-			"migration_mode": adapter.GetMigrationMode(),
+		adapterMap := compactMap(map[string]any{
+			"type":         adapter.GetType(),
+			"path":         adapter.GetPath(),
+			"driver":       adapter.GetDriver(),
+			"dsn":          adapter.GetDsn(),
+			"table_name":   adapter.GetTableName(),
+			"tenant":       adapter.GetTenant(),
+			"filter_field": adapter.GetFilterField(),
+			"filter_value": adapter.GetFilterValue(),
 		})
+		migrationMode := adapter.ProtoReflect().Descriptor().Fields().ByName("migration_mode")
+		if adapter.ProtoReflect().Has(migrationMode) {
+			adapterMap["migration_mode"] = adapter.GetMigrationMode()
+		}
+		out["adapter"] = adapterMap
 	}
 	if watcher := cfg.GetWatcher(); watcher != nil {
 		out["watcher"] = compactMap(map[string]any{

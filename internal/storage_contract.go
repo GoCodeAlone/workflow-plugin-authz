@@ -34,8 +34,16 @@ type StorageIndex struct {
 	Columns []string
 }
 
+type StorageDialect string
+
+const (
+	StorageDialectPostgres StorageDialect = "postgres"
+	StorageDialectSQLite   StorageDialect = "sqlite"
+)
+
 type StorageDescriptor struct {
 	Version       int
+	Dialect       StorageDialect
 	Table         string
 	Columns       []StorageColumn
 	PrimaryKey    []string
@@ -70,22 +78,18 @@ func ValidateMigrationMode(mode MigrationMode) error {
 }
 
 func StorageSchema(tableName string) StorageDescriptor {
+	descriptor, _ := StorageSchemaForDialect(StorageDialectPostgres, tableName)
+	return descriptor
+}
+
+func StorageSchemaForDialect(dialect StorageDialect, tableName string) (StorageDescriptor, error) {
 	if tableName == "" {
 		tableName = defaultStorageTable
 	}
-	return StorageDescriptor{
-		Version: StorageSchemaVersion,
-		Table:   tableName,
-		Columns: []StorageColumn{
-			{Name: "id", Type: "bigint", Nullable: false},
-			{Name: "ptype", Type: "varchar(512)", Nullable: false},
-			{Name: "v0", Type: "varchar(512)", Nullable: false},
-			{Name: "v1", Type: "varchar(512)", Nullable: false},
-			{Name: "v2", Type: "varchar(512)", Nullable: false},
-			{Name: "v3", Type: "varchar(512)", Nullable: false},
-			{Name: "v4", Type: "varchar(512)", Nullable: false},
-			{Name: "v5", Type: "varchar(512)", Nullable: false},
-		},
+	descriptor := StorageDescriptor{
+		Version:    StorageSchemaVersion,
+		Dialect:    dialect,
+		Table:      tableName,
 		PrimaryKey: []string{"id"},
 		UniqueIndexes: []StorageIndex{
 			{
@@ -94,11 +98,40 @@ func StorageSchema(tableName string) StorageDescriptor {
 			},
 		},
 	}
+	switch dialect {
+	case StorageDialectPostgres:
+		descriptor.Columns = storageColumns("bigint", "varchar(512)")
+	case StorageDialectSQLite:
+		descriptor.Columns = storageColumns("integer", "text")
+	default:
+		return StorageDescriptor{}, newStorageValidationError("dialect")
+	}
+	return descriptor, nil
+}
+
+func storageColumns(idType, valueType string) []StorageColumn {
+	return []StorageColumn{
+		{Name: "id", Type: idType, Nullable: false},
+		{Name: "ptype", Type: valueType, Nullable: false},
+		{Name: "v0", Type: valueType, Nullable: false},
+		{Name: "v1", Type: valueType, Nullable: false},
+		{Name: "v2", Type: valueType, Nullable: false},
+		{Name: "v3", Type: valueType, Nullable: false},
+		{Name: "v4", Type: valueType, Nullable: false},
+		{Name: "v5", Type: valueType, Nullable: false},
+	}
 }
 
 func ValidateStorage(ctx context.Context, db *gorm.DB, tableName string) error {
-	descriptor := StorageSchema(tableName)
-	if db == nil || descriptor.Table == "" || !validStorageIdentifier(descriptor.Table) {
+	if db == nil {
+		return newStorageValidationError("table")
+	}
+	dialect := StorageDialect(db.Dialector.Name())
+	descriptor, err := StorageSchemaForDialect(dialect, tableName)
+	if err != nil {
+		return err
+	}
+	if descriptor.Table == "" || !validStorageIdentifier(descriptor.Table) {
 		return newStorageValidationError("table")
 	}
 	if ctx == nil {
@@ -122,14 +155,13 @@ func ValidateStorage(ctx context.Context, db *gorm.DB, tableName string) error {
 		return newStorageValidationError("columns")
 	}
 
-	dialect := db.Dialector.Name()
 	primaryKey := make([]string, 0, len(descriptor.PrimaryKey))
 	for _, required := range descriptor.Columns {
 		actual, ok := columnsByName[required.Name]
 		if !ok {
 			return newStorageValidationError("columns")
 		}
-		if !storageTypeMatches(dialect, required.Type, actual) {
+		if !storageTypeMatches(required.Type, actual) {
 			return newStorageValidationError("types")
 		}
 		nullable, known := actual.Nullable()
@@ -152,17 +184,32 @@ func ValidateStorage(ctx context.Context, db *gorm.DB, tableName string) error {
 	if err != nil {
 		return newStorageValidationError("unique index")
 	}
-	indexesByName := make(map[string]gorm.Index, len(indexes))
+	uniqueIndexes := make(map[string]gorm.Index, len(indexes))
 	for _, index := range indexes {
-		indexesByName[index.Name()] = index
+		primary, known := index.PrimaryKey()
+		if !known {
+			return newStorageValidationError("unique index")
+		}
+		if primary {
+			continue
+		}
+		unique, known := index.Unique()
+		if !known {
+			return newStorageValidationError("unique index")
+		}
+		if unique {
+			uniqueIndexes[index.Name()] = index
+		}
+	}
+	if len(uniqueIndexes) != len(descriptor.UniqueIndexes) {
+		return newStorageValidationError("unique index")
 	}
 	for _, required := range descriptor.UniqueIndexes {
-		actual, ok := indexesByName[required.Name]
+		actual, ok := uniqueIndexes[required.Name]
 		if !ok {
 			return newStorageValidationError("unique index")
 		}
-		unique, known := actual.Unique()
-		if !known || !unique || !slices.Equal(actual.Columns(), required.Columns) {
+		if !slices.Equal(actual.Columns(), required.Columns) {
 			return newStorageValidationError("unique index")
 		}
 	}
@@ -187,21 +234,17 @@ func isStorageValidationError(err error) bool {
 	return ok
 }
 
-func storageTypeMatches(dialect, required string, actual gorm.ColumnType) bool {
+func storageTypeMatches(required string, actual gorm.ColumnType) bool {
 	databaseType := normalizeStorageType(actual.DatabaseTypeName())
 	columnType, _ := actual.ColumnType()
 	fullType := normalizeStorageType(columnType)
 
 	switch required {
 	case "bigint":
-		if databaseType == "bigint" || databaseType == "bigserial" || databaseType == "int8" {
-			return true
-		}
-		return dialect == "sqlite" && databaseType == "integer"
+		return databaseType == "bigint" || databaseType == "bigserial" || databaseType == "int8"
+	case "integer":
+		return databaseType == "integer"
 	case "varchar(512)":
-		if dialect == "sqlite" && databaseType == "text" {
-			return true
-		}
 		if databaseType != "varchar" && databaseType != "character varying" && databaseType != "varchar(512)" {
 			return false
 		}
@@ -209,6 +252,8 @@ func storageTypeMatches(dialect, required string, actual gorm.ColumnType) bool {
 			return length == 512
 		}
 		return fullType == "varchar(512)" || fullType == "character varying(512)" || databaseType == "varchar(512)"
+	case "text":
+		return databaseType == "text"
 	default:
 		return databaseType == normalizeStorageType(required) || fullType == normalizeStorageType(required)
 	}

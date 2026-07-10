@@ -6,9 +6,20 @@ import (
 	"testing"
 
 	"github.com/GoCodeAlone/workflow-plugin-authz/internal/contracts"
+	"google.golang.org/protobuf/encoding/protowire"
+	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
+
+func TestMigrationModeProtobufFieldHasPresence(t *testing.T) {
+	t.Parallel()
+
+	field := (&contracts.AdapterConfig{}).ProtoReflect().Descriptor().Fields().ByName("migration_mode")
+	if field == nil || !field.HasPresence() {
+		t.Fatalf("migration_mode presence = %v, want proto3 optional presence", field != nil && field.HasPresence())
+	}
+}
 
 func TestMigrationModeRawModuleRejectsInvalidValues(t *testing.T) {
 	t.Parallel()
@@ -108,14 +119,13 @@ func TestMigrationModeValidateAcceptsExactSchemaWithoutDDL(t *testing.T) {
 func TestMigrationModeTypedProtobufPropagation(t *testing.T) {
 	t.Parallel()
 
+	dsn := filepath.Join(t.TempDir(), "authz.db")
+	db := openMigrationTestDB(t, dsn)
+	createMigrationSchema(t, db, false)
+	before := migrationSchemaVersion(t, db)
 	raw := casbinModuleConfigToMap(&contracts.CasbinModuleConfig{
-		Model: testModel,
-		Adapter: &contracts.AdapterConfig{
-			Type:          "gorm",
-			Driver:        "sqlite3",
-			Dsn:           ":memory:",
-			MigrationMode: "validate",
-		},
+		Model:   testModel,
+		Adapter: adapterConfigWithMigrationWire(t, dsn, "validate"),
 	})
 	adapter, ok := raw["adapter"].(map[string]any)
 	if !ok {
@@ -123,6 +133,29 @@ func TestMigrationModeTypedProtobufPropagation(t *testing.T) {
 	}
 	if got := adapter["migration_mode"]; got != "validate" {
 		t.Fatalf("typed migration_mode = %#v, want validate", got)
+	}
+	module, err := newCasbinModule("authz", raw)
+	if err != nil {
+		t.Fatalf("newCasbinModule(): %v", err)
+	}
+	if err := module.Init(); err == nil || err.Error() != "authz storage schema v1 unique index" {
+		t.Fatalf("Init() error = %v, want typed validate-mode drift rejection", err)
+	}
+	if after := migrationSchemaVersion(t, db); after != before {
+		t.Fatalf("typed validate mode changed schema version from %d to %d", before, after)
+	}
+}
+
+func TestMigrationModeTypedProtobufPresentEmptyRejected(t *testing.T) {
+	t.Parallel()
+
+	raw := casbinModuleConfigToMap(&contracts.CasbinModuleConfig{
+		Model:   testModel,
+		Adapter: adapterConfigWithMigrationWire(t, ":memory:", ""),
+	})
+	_, err := newCasbinModule("authz", raw)
+	if err == nil || !strings.Contains(err.Error(), "migration_mode") {
+		t.Fatalf("newCasbinModule() error = %v, want present-empty migration_mode rejection", err)
 	}
 }
 
@@ -165,6 +198,25 @@ func migrationModuleConfig(dsn string, mode any, present bool) map[string]any {
 		"model":   testModel,
 		"adapter": adapter,
 	}
+}
+
+func adapterConfigWithMigrationWire(t *testing.T, dsn, mode string) *contracts.AdapterConfig {
+	t.Helper()
+	base, err := proto.Marshal(&contracts.AdapterConfig{
+		Type:   "gorm",
+		Driver: "sqlite3",
+		Dsn:    dsn,
+	})
+	if err != nil {
+		t.Fatalf("marshal typed adapter base: %v", err)
+	}
+	base = protowire.AppendTag(base, 9, protowire.BytesType)
+	base = protowire.AppendString(base, mode)
+	var adapter contracts.AdapterConfig
+	if err := proto.Unmarshal(base, &adapter); err != nil {
+		t.Fatalf("unmarshal typed adapter migration_mode: %v", err)
+	}
+	return &adapter
 }
 
 func openMigrationTestDB(t *testing.T, dsn string) *gorm.DB {
