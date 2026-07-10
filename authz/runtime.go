@@ -1,16 +1,20 @@
 package authz
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/GoCodeAlone/workflow-plugin-authz/internal"
+)
 
 // MigrationMode controls whether the runtime owns schema migration or only
 // validates a schema owned by the host application.
-type MigrationMode string
+type MigrationMode = internal.MigrationMode
 
 const (
 	// MigrationModeAuto creates or updates the policy schema before loading it.
-	MigrationModeAuto MigrationMode = "auto"
+	MigrationModeAuto = internal.MigrationModeAuto
 	// MigrationModeValidate verifies the policy schema without executing DDL.
-	MigrationModeValidate MigrationMode = "validate"
+	MigrationModeValidate = internal.MigrationModeValidate
 )
 
 // StorageConfig describes persistent policy storage for a standalone runtime.
@@ -35,7 +39,7 @@ func (c RuntimeConfig) Validate() error {
 	if c.Storage == nil {
 		return nil
 	}
-	if err := validateMigrationMode(c.Storage.MigrationMode); err != nil {
+	if err := internal.ValidateMigrationMode(c.Storage.MigrationMode); err != nil {
 		return fmt.Errorf("authz runtime: %w", err)
 	}
 	return nil
@@ -44,28 +48,5 @@ func (c RuntimeConfig) Validate() error {
 // DecodeMigrationMode decodes migration_mode from a raw YAML/module config.
 // Only an absent field receives the legacy-compatible auto default.
 func DecodeMigrationMode(raw map[string]any) (MigrationMode, error) {
-	value, present := raw["migration_mode"]
-	if !present {
-		return MigrationModeAuto, nil
-	}
-	mode, ok := value.(string)
-	if !ok {
-		return "", fmt.Errorf("migration_mode must be a string, got %T", value)
-	}
-	decoded := MigrationMode(mode)
-	if err := validateMigrationMode(decoded); err != nil {
-		return "", err
-	}
-	return decoded, nil
-}
-
-func validateMigrationMode(mode MigrationMode) error {
-	switch mode {
-	case MigrationModeAuto, MigrationModeValidate:
-		return nil
-	case "":
-		return fmt.Errorf("migration mode (migration_mode) is required")
-	default:
-		return fmt.Errorf("migration mode (migration_mode) %q is unsupported", mode)
-	}
+	return internal.DecodeMigrationMode(raw)
 }

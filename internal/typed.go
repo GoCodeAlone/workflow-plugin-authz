@@ -24,14 +24,15 @@ func casbinModuleConfigToMap(cfg *contracts.CasbinModuleConfig) map[string]any {
 	}
 	if adapter := cfg.GetAdapter(); adapter != nil {
 		out["adapter"] = compactMap(map[string]any{
-			"type":         adapter.GetType(),
-			"path":         adapter.GetPath(),
-			"driver":       adapter.GetDriver(),
-			"dsn":          adapter.GetDsn(),
-			"table_name":   adapter.GetTableName(),
-			"tenant":       adapter.GetTenant(),
-			"filter_field": adapter.GetFilterField(),
-			"filter_value": adapter.GetFilterValue(),
+			"type":           adapter.GetType(),
+			"path":           adapter.GetPath(),
+			"driver":         adapter.GetDriver(),
+			"dsn":            adapter.GetDsn(),
+			"table_name":     adapter.GetTableName(),
+			"tenant":         adapter.GetTenant(),
+			"filter_field":   adapter.GetFilterField(),
+			"filter_value":   adapter.GetFilterValue(),
+			"migration_mode": adapter.GetMigrationMode(),
 		})
 	}
 	if watcher := cfg.GetWatcher(); watcher != nil {

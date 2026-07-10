@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -206,10 +207,11 @@ func assertStorageError(t *testing.T, err error, category string) {
 		t.Fatalf("ValidateStorage() error = nil, want %q category", category)
 	}
 	message := err.Error()
-	if !strings.Contains(message, "storage schema v1") || !strings.Contains(message, category) {
-		t.Fatalf("ValidateStorage() error = %q, want version and %q category", message, category)
+	want := fmt.Sprintf("authz storage schema v%d %s", authz.StorageSchemaVersion, category)
+	if message != want {
+		t.Fatalf("ValidateStorage() error = %q, want exactly %q", message, want)
 	}
-	for _, secret := range []string{"secret-dsn", "RAW_SQL_SECRET", "SELECT ", "CREATE ", "ALTER ", "DROP "} {
+	for _, secret := range []string{"authz_policy", "v5", "uidx_authz_policy", "secret-dsn", "RAW_SQL_SECRET", "SELECT ", "CREATE ", "ALTER ", "DROP "} {
 		if strings.Contains(message, secret) {
 			t.Fatalf("ValidateStorage() error leaked %q: %q", secret, message)
 		}

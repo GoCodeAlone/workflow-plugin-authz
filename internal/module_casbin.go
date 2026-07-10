@@ -61,6 +61,9 @@ type adapterConfig struct {
 	// persist.FilteredAdapter and only loads/saves matching rows.
 	FilterField string `yaml:"filter_field"`
 	FilterValue string `yaml:"filter_value"`
+
+	// MigrationMode controls whether the adapter updates or only validates the schema.
+	MigrationMode MigrationMode `yaml:"migration_mode"`
 }
 
 // watcherConfig describes the optional polling reload behaviour.
@@ -138,7 +141,11 @@ func parseCasbinConfig(raw map[string]any) (casbinConfig, error) {
 
 	// Parse adapter section.
 	if adapterRaw, ok := raw["adapter"].(map[string]any); ok {
-		cfg.Adapter = parseAdapterConfig(adapterRaw)
+		adapter, err := parseAdapterConfig(adapterRaw)
+		if err != nil {
+			return cfg, fmt.Errorf("config.adapter: %w", err)
+		}
+		cfg.Adapter = adapter
 	}
 
 	// Parse watcher section.
@@ -150,7 +157,7 @@ func parseCasbinConfig(raw map[string]any) (casbinConfig, error) {
 }
 
 // parseAdapterConfig parses the adapter sub-map.
-func parseAdapterConfig(raw map[string]any) adapterConfig {
+func parseAdapterConfig(raw map[string]any) (adapterConfig, error) {
 	var a adapterConfig
 	a.Type, _ = raw["type"].(string)
 	a.Path, _ = raw["path"].(string)
@@ -160,7 +167,12 @@ func parseAdapterConfig(raw map[string]any) adapterConfig {
 	a.Tenant, _ = raw["tenant"].(string)
 	a.FilterField, _ = raw["filter_field"].(string)
 	a.FilterValue, _ = raw["filter_value"].(string)
-	return a
+	mode, err := DecodeMigrationMode(raw)
+	if err != nil {
+		return a, err
+	}
+	a.MigrationMode = mode
+	return a, nil
 }
 
 // parseWatcherConfig parses the watcher sub-map.
@@ -248,8 +260,11 @@ func (m *CasbinModule) buildGORMAdapter() (persist.Adapter, error) {
 	}
 
 	// Option A: pass filter fields for tenant-scoped policy loading.
-	a, err := newGORMAdapter(db, tableName, m.config.Adapter.FilterField, m.config.Adapter.FilterValue)
+	a, err := newGORMAdapter(db, tableName, m.config.Adapter.FilterField, m.config.Adapter.FilterValue, m.config.Adapter.MigrationMode)
 	if err != nil {
+		if isStorageValidationError(err) {
+			return nil, err
+		}
 		return nil, fmt.Errorf("authz.casbin %q: create gorm adapter: %w", m.name, err)
 	}
 	return a, nil
@@ -285,6 +300,9 @@ func (m *CasbinModule) Init() error {
 
 	adapter, err := m.buildAdapter()
 	if err != nil {
+		if isStorageValidationError(err) {
+			return err
+		}
 		return fmt.Errorf("authz.casbin %q: build adapter: %w", m.name, err)
 	}
 
