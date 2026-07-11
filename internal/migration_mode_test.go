@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/GoCodeAlone/workflow-plugin-authz/internal/contracts"
+	workflowconfig "github.com/GoCodeAlone/workflow/config"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
@@ -39,6 +40,104 @@ func TestMigrationModeRawModuleRejectsInvalidValues(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMigrationModeWorkflowYAMLBoundary(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct {
+		name       string
+		modeYAML   string
+		want       MigrationMode
+		wantReject bool
+	}{
+		{name: "absent", want: MigrationModeAuto},
+		{name: "empty", modeYAML: "        migration_mode: \"\"\n", wantReject: true},
+		{name: "null", modeYAML: "        migration_mode: null\n", wantReject: true},
+		{name: "unknown", modeYAML: "        migration_mode: repair\n", wantReject: true},
+		{name: "valid", modeYAML: "        migration_mode: validate\n", want: MigrationModeValidate},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			cfg, err := workflowconfig.LoadFromString("modules:\n  - name: authz\n    type: authz.casbin\n    config:\n      model: |\n" + indentYAML(testModel, 8) + "      adapter:\n        type: gorm\n        driver: sqlite3\n        dsn: ':memory:'\n" + tt.modeYAML)
+			if err != nil {
+				t.Fatalf("LoadFromString(): %v", err)
+			}
+			module, err := newCasbinModule("authz", cfg.Modules[0].Config)
+			if tt.wantReject {
+				if err == nil || !strings.Contains(err.Error(), "migration_mode") {
+					t.Fatalf("newCasbinModule() error = %v, want raw Workflow migration_mode rejection", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("newCasbinModule(): %v", err)
+			}
+			if got := module.config.Adapter.MigrationMode; got != tt.want {
+				t.Fatalf("migration mode = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMigrationModeWorkflowJSONNullBoundary(t *testing.T) {
+	t.Parallel()
+
+	cfg, err := workflowconfig.LoadFromString(`{"modules":[{"name":"authz","type":"authz.casbin","config":{"model":"` + strings.ReplaceAll(testModel, "\n", `\n`) + `","adapter":{"type":"gorm","driver":"sqlite3","dsn":":memory:","migration_mode":null}}}]}`)
+	if err != nil {
+		t.Fatalf("LoadFromString(): %v", err)
+	}
+	_, err = newCasbinModule("authz", cfg.Modules[0].Config)
+	if err == nil || !strings.Contains(err.Error(), "migration_mode") {
+		t.Fatalf("newCasbinModule() error = %v, want raw Workflow JSON null rejection", err)
+	}
+}
+
+func TestMigrationModeMySQLValidateRejectsDialectBeforeOpen(t *testing.T) {
+	t.Parallel()
+
+	for _, dsn := range []string{"", "RAW_DSN_SECRET"} {
+		module, err := newCasbinModule("authz", map[string]any{
+			"model": testModel,
+			"adapter": map[string]any{
+				"type":           "gorm",
+				"driver":         "  MySQL  ",
+				"dsn":            dsn,
+				"migration_mode": "validate",
+			},
+		})
+		if err != nil {
+			t.Fatalf("newCasbinModule(): %v", err)
+		}
+		const want = "authz storage schema v1 dialect"
+		if err := module.Init(); err == nil || err.Error() != want {
+			t.Fatalf("Init() with DSN %q error = %v, want exactly %q before DSN validation or gorm.Open", dsn, err, want)
+		}
+	}
+}
+
+func TestMigrationModeMySQLAutoPreservesLegacyDSNValidation(t *testing.T) {
+	t.Parallel()
+
+	module, err := newCasbinModule("authz", map[string]any{
+		"model": testModel,
+		"adapter": map[string]any{
+			"type":           "gorm",
+			"driver":         "  MySQL  ",
+			"migration_mode": "auto",
+		},
+	})
+	if err != nil {
+		t.Fatalf("newCasbinModule(): %v", err)
+	}
+	if err := module.Init(); err == nil || !strings.Contains(err.Error(), "adapter.dsn is required") {
+		t.Fatalf("Init() error = %v, want legacy DSN validation", err)
+	}
+}
+
+func indentYAML(value string, spaces int) string {
+	prefix := strings.Repeat(" ", spaces)
+	return prefix + strings.ReplaceAll(strings.TrimSuffix(value, "\n"), "\n", "\n"+prefix) + "\n"
 }
 
 func TestMigrationModeRawModuleDefaultsAbsentToAuto(t *testing.T) {
@@ -113,6 +212,62 @@ func TestMigrationModeValidateAcceptsExactSchemaWithoutDDL(t *testing.T) {
 	}
 	if after := migrationSchemaVersion(t, db); after != before {
 		t.Fatalf("validate mode changed schema version from %d to %d", before, after)
+	}
+}
+
+func TestStorageSQLitePreservesAndRejectsPartialIndexes(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct {
+		name  string
+		setup func(*testing.T, *gorm.DB)
+	}{
+		{
+			name: "required index is partial",
+			setup: func(t *testing.T, db *gorm.DB) {
+				createMigrationSchema(t, db, false)
+				execMigrationSQL(t, db, "CREATE UNIQUE INDEX uidx_casbin_rule ON casbin_rule (ptype, v0, v1, v2, v3, v4, v5) WHERE v0 <> ''")
+			},
+		},
+		{
+			name: "extra unique index is partial",
+			setup: func(t *testing.T, db *gorm.DB) {
+				createMigrationSchema(t, db, true)
+				execMigrationSQL(t, db, "CREATE UNIQUE INDEX uidx_extra_partial ON casbin_rule (v0) WHERE v0 <> ''")
+			},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			db := openMigrationTestDB(t, filepath.Join(t.TempDir(), "authz.db"))
+			tt.setup(t, db)
+
+			indexes, err := db.Migrator().GetIndexes("casbin_rule")
+			if err != nil {
+				t.Fatalf("GetIndexes(): %v", err)
+			}
+			partialFound := false
+			for _, index := range indexes {
+				if index.Option() != "" {
+					partialFound = true
+				}
+			}
+			if !partialFound {
+				t.Fatal("SQLite partial-index predicate metadata was discarded")
+			}
+
+			const want = "authz storage schema v1 unique index"
+			if err := ValidateStorage(t.Context(), db, "casbin_rule"); err == nil || err.Error() != want {
+				t.Fatalf("ValidateStorage() error = %v, want exactly %q", err, want)
+			}
+		})
+	}
+}
+
+func execMigrationSQL(t *testing.T, db *gorm.DB, query string) {
+	t.Helper()
+	if err := db.Exec(query).Error; err != nil {
+		t.Fatalf("execute migration fixture SQL: %v", err)
 	}
 }
 

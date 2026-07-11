@@ -231,6 +231,10 @@ func (m *CasbinModule) buildAdapter() (persist.Adapter, error) {
 
 // buildGORMAdapter opens a GORM connection and returns a gorm-adapter.
 func (m *CasbinModule) buildGORMAdapter() (persist.Adapter, error) {
+	driver := normalizeGORMDriver(m.config.Adapter.Driver)
+	if m.config.Adapter.MigrationMode == MigrationModeValidate && driver == "mysql" {
+		return nil, newStorageValidationError("dialect")
+	}
 	if m.config.Adapter.DSN == "" {
 		return nil, fmt.Errorf("authz.casbin %q: adapter.dsn is required for gorm adapter", m.name)
 	}
@@ -241,12 +245,12 @@ func (m *CasbinModule) buildGORMAdapter() (persist.Adapter, error) {
 	var db *gorm.DB
 	var err error
 
-	switch strings.ToLower(m.config.Adapter.Driver) {
-	case "postgres", "postgresql":
+	switch driver {
+	case "postgres":
 		db, err = gorm.Open(postgres.Open(m.config.Adapter.DSN), gormCfg)
 	case "mysql":
 		db, err = gorm.Open(mysql.Open(m.config.Adapter.DSN), gormCfg)
-	case "sqlite3", "sqlite":
+	case "sqlite":
 		db, err = gorm.Open(openSQLite(m.config.Adapter.DSN), gormCfg)
 	default:
 		return nil, fmt.Errorf("authz.casbin %q: unsupported gorm driver %q (supported: postgres, mysql, sqlite3)", m.name, m.config.Adapter.Driver)
@@ -270,6 +274,19 @@ func (m *CasbinModule) buildGORMAdapter() (persist.Adapter, error) {
 		return nil, fmt.Errorf("authz.casbin %q: create gorm adapter: %w", m.name, err)
 	}
 	return a, nil
+}
+
+func normalizeGORMDriver(driver string) string {
+	switch strings.ToLower(strings.TrimSpace(driver)) {
+	case "postgres", "postgresql":
+		return "postgres"
+	case "sqlite", "sqlite3":
+		return "sqlite"
+	case "mysql":
+		return "mysql"
+	default:
+		return strings.ToLower(strings.TrimSpace(driver))
+	}
 }
 
 // resolveTableNameTemplate resolves a Go template in tableName.

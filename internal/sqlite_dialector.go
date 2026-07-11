@@ -91,6 +91,7 @@ type sqliteIndexInfo struct {
 	Name       string `gorm:"column:name"`
 	Unique     int    `gorm:"column:is_unique"`
 	PrimaryKey bool   `gorm:"column:is_primary_key"`
+	Partial    bool   `gorm:"column:is_partial"`
 }
 
 type sqliteIndexColumn struct {
@@ -169,13 +170,17 @@ func (m sqliteMigrator) GetIndexes(value interface{}) (indexes []gorm.Index, err
 	err = m.RunWithValue(value, func(stmt *gorm.Statement) error {
 		var rows []sqliteIndexInfo
 		if err := m.DB.Raw(`
-			SELECT name, "unique" AS is_unique, origin = 'pk' AS is_primary_key
+			SELECT name, "unique" AS is_unique, origin = 'pk' AS is_primary_key, "partial" AS is_partial
 			FROM pragma_index_list(?)
 			ORDER BY seq`, stmt.Table).Scan(&rows).Error; err != nil {
 			return err
 		}
 		indexes = make([]gorm.Index, 0, len(rows))
 		for _, row := range rows {
+			option := ""
+			if row.Partial {
+				option = "partial"
+			}
 			var columnRows []sqliteIndexColumn
 			if err := m.DB.Raw(`
 				SELECT name
@@ -197,6 +202,7 @@ func (m sqliteMigrator) GetIndexes(value interface{}) (indexes []gorm.Index, err
 				UniqueValue: sql.NullBool{
 					Bool: row.Unique != 0, Valid: true,
 				},
+				OptionValue: option,
 			})
 		}
 		return nil

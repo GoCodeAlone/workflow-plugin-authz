@@ -191,7 +191,7 @@ func TestStoragePublicTypesOwnedByAuthz(t *testing.T) {
 func TestValidateStorageAcceptsExactSchemaWithoutDDL(t *testing.T) {
 	t.Parallel()
 
-	descriptor := authz.StorageSchema("authz_policy")
+	descriptor := sqliteStorageDescriptor(t, "authz_policy")
 	fixture := exactStorageFixture(descriptor)
 	fixture.indexes = append(fixture.indexes,
 		&fixtureIndex{name: "authz_policy_pkey", columns: []string{"id"}, unique: true, primaryKey: true, metadataKnown: true},
@@ -210,7 +210,7 @@ func TestValidateStorageAcceptsExactSchemaWithoutDDL(t *testing.T) {
 func TestValidateStorageRejectsSchemaDriftByCategory(t *testing.T) {
 	t.Parallel()
 
-	descriptor := authz.StorageSchema("authz_policy")
+	descriptor := sqliteStorageDescriptor(t, "authz_policy")
 	tests := []struct {
 		name     string
 		category string
@@ -224,8 +224,14 @@ func TestValidateStorageRejectsSchemaDriftByCategory(t *testing.T) {
 		{name: "missing unique index", category: "unique index", mutate: func(f *storageFixture) { f.indexes = nil }},
 		{name: "non unique index", category: "unique index", mutate: func(f *storageFixture) { f.indexes[0].(*fixtureIndex).unique = false }},
 		{name: "wrong unique index", category: "unique index", mutate: func(f *storageFixture) { f.indexes[0].(*fixtureIndex).columns = []string{"ptype", "v0"} }},
+		{name: "partial required unique index", category: "unique index", mutate: func(f *storageFixture) {
+			f.indexes[0].(*fixtureIndex).predicate = "v0 <> ''"
+		}},
 		{name: "extra unique index", category: "unique index", mutate: func(f *storageFixture) {
 			f.indexes = append(f.indexes, &fixtureIndex{name: "uidx_extra", columns: []string{"v0"}, unique: true, metadataKnown: true})
+		}},
+		{name: "extra partial unique index", category: "unique index", mutate: func(f *storageFixture) {
+			f.indexes = append(f.indexes, &fixtureIndex{name: "uidx_extra", columns: []string{"v0"}, unique: true, predicate: "v0 <> ''", metadataKnown: true})
 		}},
 	}
 
@@ -248,7 +254,7 @@ func TestValidateStorageRejectsSchemaDriftByCategory(t *testing.T) {
 func TestValidateStorageSanitizesInspectionErrors(t *testing.T) {
 	t.Parallel()
 
-	descriptor := authz.StorageSchema("authz_policy")
+	descriptor := sqliteStorageDescriptor(t, "authz_policy")
 	fixture := exactStorageFixture(descriptor)
 	fixture.columnErr = errors.New("SELECT RAW_SQL_SECRET FROM postgres://secret-dsn")
 	db := openStorageFixture(t, fixture)
@@ -397,6 +403,7 @@ type fixtureIndex struct {
 	columns       []string
 	unique        bool
 	primaryKey    bool
+	predicate     string
 	metadataKnown bool
 }
 
@@ -407,6 +414,8 @@ func (i *fixtureIndex) Columns() []string { return i.columns }
 func (i *fixtureIndex) Unique() (bool, bool) { return i.unique, i.metadataKnown }
 
 func (i *fixtureIndex) PrimaryKey() (bool, bool) { return i.primaryKey, i.metadataKnown }
+
+func (i *fixtureIndex) Option() string { return i.predicate }
 
 type fixtureDialector struct {
 	gorm.Dialector
@@ -421,7 +430,16 @@ func (d *fixtureDialector) Initialize(*gorm.DB) error { return nil }
 func (d *fixtureDialector) Migrator(*gorm.DB) gorm.Migrator { return d.fixture }
 
 func openStorageFixture(t *testing.T, fixture *storageFixture) *gorm.DB {
-	return openStorageFixtureDialect(t, fixture, "postgres")
+	return openStorageFixtureDialect(t, fixture, "sqlite")
+}
+
+func sqliteStorageDescriptor(t *testing.T, table string) authz.StorageDescriptor {
+	t.Helper()
+	descriptor, err := authz.StorageSchemaForDialect(authz.StorageDialectSQLite, table)
+	if err != nil {
+		t.Fatalf("SQLite storage descriptor: %v", err)
+	}
+	return descriptor
 }
 
 func openStorageFixtureDialect(t *testing.T, fixture *storageFixture, dialect string) *gorm.DB {

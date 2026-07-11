@@ -2,12 +2,14 @@ package internal
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"slices"
 	"strings"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/migrator"
 )
 
 const (
@@ -15,6 +17,26 @@ const (
 
 	defaultStorageTable = "casbin_rule"
 )
+
+const postgresStorageIndexesSQL = `
+SELECT
+	idx.relname AS index_name,
+	i.indisprimary AS is_primary,
+	i.indisunique AS is_unique,
+	COALESCE(pg_catalog.pg_get_expr(i.indpred, i.indrelid), '') AS predicate,
+	COALESCE(att.attname, pg_catalog.pg_get_indexdef(i.indexrelid, key_columns.ordinality::integer, true)) AS column_name,
+	key_columns.ordinality AS ordinal
+FROM pg_catalog.pg_class AS tbl
+JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = tbl.relnamespace
+JOIN pg_catalog.pg_index AS i ON i.indrelid = tbl.oid
+JOIN pg_catalog.pg_class AS idx ON idx.oid = i.indexrelid
+JOIN LATERAL unnest(i.indkey::smallint[]) WITH ORDINALITY AS key_columns(attnum, ordinality)
+	ON key_columns.ordinality <= i.indnkeyatts
+LEFT JOIN pg_catalog.pg_attribute AS att
+	ON att.attrelid = tbl.oid AND att.attnum = key_columns.attnum
+WHERE namespace.nspname = current_schema()
+	AND tbl.relname = ?
+ORDER BY idx.relname, key_columns.ordinality`
 
 type MigrationMode string
 
@@ -48,6 +70,24 @@ type StorageDescriptor struct {
 	Columns       []StorageColumn
 	PrimaryKey    []string
 	UniqueIndexes []StorageIndex
+}
+
+type postgresStorageIndexRow struct {
+	IndexName  string `gorm:"column:index_name"`
+	Primary    bool   `gorm:"column:is_primary"`
+	Unique     bool   `gorm:"column:is_unique"`
+	Predicate  string `gorm:"column:predicate"`
+	ColumnName string `gorm:"column:column_name"`
+	Ordinal    int    `gorm:"column:ordinal"`
+}
+
+type storageIndexMetadata struct {
+	Table     string
+	Name      string
+	Columns   []string
+	Primary   bool
+	Unique    bool
+	Predicate string
 }
 
 func DecodeMigrationMode(raw map[string]any) (MigrationMode, error) {
@@ -138,7 +178,8 @@ func ValidateStorage(ctx context.Context, db *gorm.DB, tableName string) error {
 		ctx = context.Background()
 	}
 
-	migrator := db.WithContext(ctx).Migrator()
+	validationDB := db.WithContext(ctx)
+	migrator := validationDB.Migrator()
 	if !migrator.HasTable(descriptor.Table) {
 		return newStorageValidationError("table")
 	}
@@ -180,10 +221,14 @@ func ValidateStorage(ctx context.Context, db *gorm.DB, tableName string) error {
 		return newStorageValidationError("primary key")
 	}
 
-	indexes, err := migrator.GetIndexes(descriptor.Table)
+	indexes, err := storageIndexes(validationDB, descriptor)
 	if err != nil {
 		return newStorageValidationError("unique index")
 	}
+	return validateStorageIndexes(indexes, descriptor)
+}
+
+func validateStorageIndexes(indexes []gorm.Index, descriptor StorageDescriptor) error {
 	uniqueIndexes := make(map[string]gorm.Index, len(indexes))
 	for _, index := range indexes {
 		primary, known := index.PrimaryKey()
@@ -212,9 +257,67 @@ func ValidateStorage(ctx context.Context, db *gorm.DB, tableName string) error {
 		if !slices.Equal(actual.Columns(), required.Columns) {
 			return newStorageValidationError("unique index")
 		}
+		if strings.TrimSpace(actual.Option()) != "" {
+			return newStorageValidationError("unique index")
+		}
 	}
 
 	return nil
+}
+
+func storageIndexes(db *gorm.DB, descriptor StorageDescriptor) ([]gorm.Index, error) {
+	if descriptor.Dialect != StorageDialectPostgres {
+		return db.Migrator().GetIndexes(descriptor.Table)
+	}
+
+	var rows []postgresStorageIndexRow
+	if err := db.Raw(postgresStorageIndexesSQL, descriptor.Table).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	metadata, err := mapPostgresStorageIndexes(descriptor.Table, rows)
+	if err != nil {
+		return nil, err
+	}
+	return storageIndexesFromMetadata(metadata), nil
+}
+
+func storageIndexesFromMetadata(metadata []storageIndexMetadata) []gorm.Index {
+	indexes := make([]gorm.Index, len(metadata))
+	for i := range metadata {
+		indexes[i] = migrator.Index{
+			TableName:       metadata[i].Table,
+			NameValue:       metadata[i].Name,
+			ColumnList:      append([]string(nil), metadata[i].Columns...),
+			PrimaryKeyValue: sql.NullBool{Bool: metadata[i].Primary, Valid: true},
+			UniqueValue:     sql.NullBool{Bool: metadata[i].Unique, Valid: true},
+			OptionValue:     metadata[i].Predicate,
+		}
+	}
+	return indexes
+}
+
+func mapPostgresStorageIndexes(table string, rows []postgresStorageIndexRow) ([]storageIndexMetadata, error) {
+	indexes := make([]storageIndexMetadata, 0)
+	for _, row := range rows {
+		if row.IndexName == "" || row.ColumnName == "" || row.Ordinal < 1 {
+			return nil, fmt.Errorf("invalid PostgreSQL index metadata")
+		}
+		if len(indexes) == 0 || indexes[len(indexes)-1].Name != row.IndexName {
+			indexes = append(indexes, storageIndexMetadata{
+				Table:     table,
+				Name:      row.IndexName,
+				Primary:   row.Primary,
+				Unique:    row.Unique,
+				Predicate: row.Predicate,
+			})
+		}
+		index := &indexes[len(indexes)-1]
+		if index.Primary != row.Primary || index.Unique != row.Unique || index.Predicate != row.Predicate || row.Ordinal != len(index.Columns)+1 {
+			return nil, fmt.Errorf("inconsistent PostgreSQL index metadata")
+		}
+		index.Columns = append(index.Columns, row.ColumnName)
+	}
+	return indexes, nil
 }
 
 type storageValidationError struct {
