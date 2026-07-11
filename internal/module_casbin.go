@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"text/template"
@@ -28,6 +29,7 @@ type CasbinModule struct {
 	config     casbinConfig
 	mu         sync.RWMutex
 	enforcer   *casbin.Enforcer
+	storageDB  *gorm.DB
 	scopeRoles *scopeRoleStore
 	abac       *attributePolicyStore
 	relations  *relationTupleStore
@@ -268,6 +270,9 @@ func (m *CasbinModule) buildGORMAdapter() (persist.Adapter, error) {
 	// Option A: pass filter fields for tenant-scoped policy loading.
 	a, err := newGORMAdapter(db, tableName, m.config.Adapter.FilterField, m.config.Adapter.FilterValue, m.config.Adapter.MigrationMode)
 	if err != nil {
+		if sqlDB, dbErr := db.DB(); dbErr == nil {
+			_ = sqlDB.Close()
+		}
 		if isStorageValidationError(err) {
 			return nil, err
 		}
@@ -327,10 +332,18 @@ func (m *CasbinModule) Init() error {
 
 	e, err := casbin.NewEnforcer(md, adapter)
 	if err != nil {
+		if gormAdapter, ok := adapter.(*gormAdapter); ok {
+			if sqlDB, dbErr := gormAdapter.db.DB(); dbErr == nil {
+				_ = sqlDB.Close()
+			}
+		}
 		return fmt.Errorf("authz.casbin %q: create enforcer: %w", m.name, err)
 	}
 
 	m.enforcer = e
+	if gormAdapter, ok := adapter.(*gormAdapter); ok {
+		m.storageDB = gormAdapter.db
+	}
 	return nil
 }
 
@@ -412,6 +425,60 @@ func (m *CasbinModule) Enforce(sub, obj, act string, extra ...string) (bool, err
 	args[1+len(extra)] = obj
 	args[1+len(extra)+1] = act
 	return e.Enforce(args...)
+}
+
+// PolicySnapshot returns a deep copy of the loaded policy without reloading
+// its adapter. Standalone runtimes use this to publish an immutable startup
+// snapshot.
+func (m *CasbinModule) PolicySnapshot() ([][]string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.enforcer == nil {
+		return nil, fmt.Errorf("authz.casbin %q: enforcer not initialized", m.name)
+	}
+	policies, err := m.enforcer.GetPolicy()
+	if err != nil {
+		return nil, err
+	}
+	out := make([][]string, len(policies))
+	for i, policy := range policies {
+		out[i] = slices.Clone(policy)
+	}
+	return out, nil
+}
+
+// PingStorage checks the persistent adapter without loading policy. The bool
+// reports whether the module has persistent storage.
+func (m *CasbinModule) PingStorage(ctx context.Context) (bool, error) {
+	m.mu.RLock()
+	db := m.storageDB
+	m.mu.RUnlock()
+	if db == nil {
+		return false, nil
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		return true, err
+	}
+	return true, sqlDB.PingContext(ctx)
+}
+
+// CloseStorage releases the persistent adapter and invalidates the enforcer.
+// Callers must prevent concurrent decisions while this method runs.
+func (m *CasbinModule) CloseStorage() error {
+	m.mu.Lock()
+	db := m.storageDB
+	m.storageDB = nil
+	m.enforcer = nil
+	m.mu.Unlock()
+	if db == nil {
+		return nil
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		return err
+	}
+	return sqlDB.Close()
 }
 
 // AddPolicy adds a policy rule and saves it to the adapter.

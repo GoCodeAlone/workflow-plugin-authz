@@ -26,6 +26,11 @@ func NewCasbinModuleFromConfig(name string, config map[string]any) (*CasbinModul
 	return newCasbinModule(name, config)
 }
 
+// IsStorageValidationError reports whether err is a sanitized schema error.
+func IsStorageValidationError(err error) bool {
+	return isStorageValidationError(err)
+}
+
 // NewCasbinCheckStep creates a step.authz_check_casbin step instance.
 func NewCasbinCheckStep(name string, config map[string]any) (StepExecutor, error) {
 	return newAuthzCheckStep(name, config)
