@@ -47,6 +47,22 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: authz_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d authz_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      AUTHZ_TEST_POSTGRES_DSN: postgres://postgres:postgres@localhost:5432/authz_test?sslmode=disable
     steps:
       - uses: actions/checkout@v4
 
@@ -62,6 +78,21 @@ jobs:
         run: |
           go mod tidy
           (cd authzcontract && go mod tidy)
+
+      - name: Wait for PostgreSQL
+        run: |
+          for _ in $(seq 1 30); do
+            docker exec "${{ job.services.postgres.id }}" pg_isready -U postgres -d authz_test && exit 0
+            sleep 1
+          done
+          exit 1
+
+      - name: Run PostgreSQL storage contract
+        run: |
+          set -o pipefail
+          GOWORK=off go test ./internal -run '^TestStoragePostgresIntegrationContract$' -v -race -count=1 | tee /tmp/postgres-contract.log
+          grep -q -- '--- PASS: TestStoragePostgresIntegrationContract' /tmp/postgres-contract.log
+          ! grep -q -- '--- SKIP: TestStoragePostgresIntegrationContract' /tmp/postgres-contract.log
 
       - name: Run tests
         run: |

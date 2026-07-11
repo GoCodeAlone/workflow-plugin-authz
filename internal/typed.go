@@ -33,9 +33,8 @@ func casbinModuleConfigToMap(cfg *contracts.CasbinModuleConfig) map[string]any {
 			"filter_field": adapter.GetFilterField(),
 			"filter_value": adapter.GetFilterValue(),
 		})
-		migrationMode := adapter.ProtoReflect().Descriptor().Fields().ByName("migration_mode")
-		if adapter.ProtoReflect().Has(migrationMode) {
-			adapterMap["migration_mode"] = adapter.GetMigrationMode()
+		if migrationMode := adapter.GetMigrationMode(); migrationMode != nil {
+			adapterMap["migration_mode"] = migrationMode.AsInterface()
 		}
 		out["adapter"] = adapterMap
 	}

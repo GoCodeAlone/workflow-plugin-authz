@@ -3,8 +3,35 @@ package internal
 import (
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
+
+	"gorm.io/gorm/schema"
 )
+
+func TestStorageMigrationModelsPreserveDialectWidths(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct {
+		dialect string
+		width   int
+	}{
+		{dialect: "postgres", width: 80},
+		{dialect: "mysql", width: 512},
+		{dialect: "sqlite", width: 512},
+	} {
+		t.Run(tt.dialect, func(t *testing.T) {
+			t.Parallel()
+			parsed, err := schema.Parse(storageMigrationModel(tt.dialect), &sync.Map{}, schema.NamingStrategy{})
+			if err != nil {
+				t.Fatalf("parse %s migration model: %v", tt.dialect, err)
+			}
+			if got := int(parsed.LookUpField("Ptype").Size); got != tt.width {
+				t.Fatalf("%s migration width = %d, want %d", tt.dialect, got, tt.width)
+			}
+		})
+	}
+}
 
 func TestStoragePostgresCatalogQueryIncludesExactIndexMetadata(t *testing.T) {
 	t.Parallel()

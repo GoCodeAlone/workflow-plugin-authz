@@ -88,8 +88,8 @@ func TestLegacyAdapterConfigProtobufCompatibility(t *testing.T) {
 	if cfg.GetType() != "gorm" || cfg.GetDriver() != "postgres" || cfg.GetDsn() != "postgres://legacy.example/authz" || cfg.GetTableName() != "authz_policy" {
 		t.Fatalf("legacy AdapterConfig changed: %+v", &cfg)
 	}
-	if cfg.GetMigrationMode() != "" {
-		t.Fatalf("legacy migration_mode = %q, want absent", cfg.GetMigrationMode())
+	if cfg.GetMigrationMode() != nil {
+		t.Fatalf("legacy migration_mode = %v, want absent", cfg.GetMigrationMode())
 	}
 
 	mode, err := authz.DecodeMigrationMode(nil)
@@ -118,7 +118,7 @@ func TestStorageSchemaDescriptorsByDialect(t *testing.T) {
 		idType    string
 		valueType string
 	}{
-		{name: "postgres", dialect: authz.StorageDialectPostgres, idType: "bigint", valueType: "varchar(512)"},
+		{name: "postgres", dialect: authz.StorageDialectPostgres, idType: "bigint", valueType: "varchar(80)"},
 		{name: "sqlite", dialect: authz.StorageDialectSQLite, idType: "integer", valueType: "text"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -391,8 +391,11 @@ func (c *fixtureColumn) Nullable() (bool, bool) { return c.nullable, c.metadataK
 func (c *fixtureColumn) PrimaryKey() (bool, bool) { return c.primaryKey, c.metadataKnown }
 
 func (c *fixtureColumn) Length() (int64, bool) {
-	if c.columnType == "varchar(512)" {
-		return 512, true
+	if strings.HasPrefix(c.columnType, "varchar(") {
+		var length int64
+		if _, err := fmt.Sscanf(c.columnType, "varchar(%d)", &length); err == nil {
+			return length, true
+		}
 	}
 	return 0, false
 }

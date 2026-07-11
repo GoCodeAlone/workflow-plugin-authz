@@ -1,24 +1,89 @@
 package internal
 
 import (
+	"encoding/json"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/GoCodeAlone/workflow-plugin-authz/internal/contracts"
 	workflowconfig "github.com/GoCodeAlone/workflow/config"
-	"google.golang.org/protobuf/encoding/protowire"
-	"google.golang.org/protobuf/proto"
+	sdk "github.com/GoCodeAlone/workflow/plugin/external/sdk"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/reflect/protodesc"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
 
-func TestMigrationModeProtobufFieldHasPresence(t *testing.T) {
+func TestMigrationModeProtobufFieldPreservesJSONKinds(t *testing.T) {
 	t.Parallel()
 
-	field := (&contracts.AdapterConfig{}).ProtoReflect().Descriptor().Fields().ByName("migration_mode")
-	if field == nil || !field.HasPresence() {
-		t.Fatalf("migration_mode presence = %v, want proto3 optional presence", field != nil && field.HasPresence())
+	registry := NewAuthzPlugin().(sdk.ContractProvider).ContractRegistry()
+	files, err := protodesc.NewFiles(registry.FileDescriptorSet)
+	if err != nil {
+		t.Fatalf("published descriptor set: %v", err)
+	}
+	adapter, err := files.FindDescriptorByName("workflow.plugins.authz.v1.AdapterConfig")
+	if err != nil {
+		t.Fatalf("published AdapterConfig descriptor: %v", err)
+	}
+	field := adapter.(protoreflect.MessageDescriptor).Fields().ByName("migration_mode")
+	if field == nil || field.Kind() != protoreflect.MessageKind || field.Message().FullName() != "google.protobuf.Value" {
+		t.Fatalf("migration_mode descriptor = %v, want google.protobuf.Value", field)
+	}
+}
+
+func TestMigrationModeTypedFactoryValueBoundary(t *testing.T) {
+	provider := NewAuthzPlugin().(sdk.TypedModuleProvider)
+
+	for _, tt := range []struct {
+		name      string
+		present   bool
+		value     any
+		wantError bool
+	}{
+		{name: "absent"},
+		{name: "explicit null", present: true, value: nil, wantError: true},
+		{name: "auto", present: true, value: "auto"},
+		{name: "validate", present: true, value: "validate"},
+		{name: "empty string", present: true, value: "", wantError: true},
+		{name: "unknown string", present: true, value: "repair", wantError: true},
+		{name: "boolean", present: true, value: true, wantError: true},
+		{name: "number", present: true, value: 1, wantError: true},
+		{name: "object", present: true, value: map[string]any{"mode": "auto"}, wantError: true},
+		{name: "list", present: true, value: []any{"auto"}, wantError: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			adapter := map[string]any{"type": "gorm", "driver": "sqlite3", "dsn": ":memory:"}
+			if tt.present {
+				adapter["migration_mode"] = tt.value
+			}
+			raw, err := json.Marshal(map[string]any{"model": testModel, "adapter": adapter})
+			if err != nil {
+				t.Fatalf("marshal typed config: %v", err)
+			}
+			var cfg contracts.CasbinModuleConfig
+			if err := protojson.Unmarshal(raw, &cfg); err != nil {
+				t.Fatalf("protojson must preserve %s for plugin validation: %v", tt.name, err)
+			}
+			packed, err := anypb.New(&cfg)
+			if err != nil {
+				t.Fatalf("pack typed config: %v", err)
+			}
+			_, err = provider.CreateTypedModule("authz.casbin", "authz-"+strings.ReplaceAll(tt.name, " ", "-"), packed)
+			if tt.wantError {
+				if err == nil || !strings.Contains(err.Error(), "migration_mode") {
+					t.Fatalf("CreateTypedModule() error = %v, want migration_mode rejection", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("CreateTypedModule(): %v", err)
+			}
+		})
 	}
 }
 
@@ -42,7 +107,7 @@ func TestMigrationModeRawModuleRejectsInvalidValues(t *testing.T) {
 	}
 }
 
-func TestMigrationModeWorkflowYAMLBoundary(t *testing.T) {
+func TestMigrationModeRawWorkflowYAMLModuleBoundary(t *testing.T) {
 	t.Parallel()
 
 	for _, tt := range []struct {
@@ -80,7 +145,7 @@ func TestMigrationModeWorkflowYAMLBoundary(t *testing.T) {
 	}
 }
 
-func TestMigrationModeWorkflowJSONNullBoundary(t *testing.T) {
+func TestMigrationModeRawWorkflowJSONModuleBoundary(t *testing.T) {
 	t.Parallel()
 
 	cfg, err := workflowconfig.LoadFromString(`{"modules":[{"name":"authz","type":"authz.casbin","config":{"model":"` + strings.ReplaceAll(testModel, "\n", `\n`) + `","adapter":{"type":"gorm","driver":"sqlite3","dsn":":memory:","migration_mode":null}}}]}`)
@@ -280,7 +345,7 @@ func TestMigrationModeTypedProtobufPropagation(t *testing.T) {
 	before := migrationSchemaVersion(t, db)
 	raw := casbinModuleConfigToMap(&contracts.CasbinModuleConfig{
 		Model:   testModel,
-		Adapter: adapterConfigWithMigrationWire(t, dsn, "validate"),
+		Adapter: adapterConfigWithMigrationValue(t, dsn, "validate"),
 	})
 	adapter, ok := raw["adapter"].(map[string]any)
 	if !ok {
@@ -306,7 +371,7 @@ func TestMigrationModeTypedProtobufPresentEmptyRejected(t *testing.T) {
 
 	raw := casbinModuleConfigToMap(&contracts.CasbinModuleConfig{
 		Model:   testModel,
-		Adapter: adapterConfigWithMigrationWire(t, ":memory:", ""),
+		Adapter: adapterConfigWithMigrationValue(t, ":memory:", ""),
 	})
 	_, err := newCasbinModule("authz", raw)
 	if err == nil || !strings.Contains(err.Error(), "migration_mode") {
@@ -355,23 +420,14 @@ func migrationModuleConfig(dsn string, mode any, present bool) map[string]any {
 	}
 }
 
-func adapterConfigWithMigrationWire(t *testing.T, dsn, mode string) *contracts.AdapterConfig {
+func adapterConfigWithMigrationValue(t *testing.T, dsn, mode string) *contracts.AdapterConfig {
 	t.Helper()
-	base, err := proto.Marshal(&contracts.AdapterConfig{
-		Type:   "gorm",
-		Driver: "sqlite3",
-		Dsn:    dsn,
-	})
-	if err != nil {
-		t.Fatalf("marshal typed adapter base: %v", err)
+	return &contracts.AdapterConfig{
+		Type:          "gorm",
+		Driver:        "sqlite3",
+		Dsn:           dsn,
+		MigrationMode: structpb.NewStringValue(mode),
 	}
-	base = protowire.AppendTag(base, 9, protowire.BytesType)
-	base = protowire.AppendString(base, mode)
-	var adapter contracts.AdapterConfig
-	if err := proto.Unmarshal(base, &adapter); err != nil {
-		t.Fatalf("unmarshal typed adapter migration_mode: %v", err)
-	}
-	return &adapter
 }
 
 func openMigrationTestDB(t *testing.T, dsn string) *gorm.DB {

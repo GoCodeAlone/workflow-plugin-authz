@@ -70,6 +70,21 @@ type casbinRule struct {
 	V5    string `gorm:"size:512;not null"`
 }
 
+// postgresCasbinRule uses a conservative width for the seven-column unique
+// index so every descriptor-valid row remains below PostgreSQL's B-tree key
+// limit. MySQL keeps the legacy 512-character model above; SQLite maps both
+// sizes to text and continues using that legacy model.
+type postgresCasbinRule struct {
+	ID    uint   `gorm:"primarykey;autoIncrement"`
+	Ptype string `gorm:"size:80;not null"`
+	V0    string `gorm:"size:80;not null"`
+	V1    string `gorm:"size:80;not null"`
+	V2    string `gorm:"size:80;not null"`
+	V3    string `gorm:"size:80;not null"`
+	V4    string `gorm:"size:80;not null"`
+	V5    string `gorm:"size:80;not null"`
+}
+
 // TableName returns the default gorm table name.
 // When a custom table name is needed the caller uses db.Table(name) explicitly.
 func (casbinRule) TableName() string { return "casbin_rule" }
@@ -177,7 +192,7 @@ func migrateTable(db *gorm.DB, tableName string) error {
 	tableExists := db.Migrator().HasTable(tableName)
 
 	if !isSQLite || !tableExists {
-		if err := db.Table(tableName).AutoMigrate(&casbinRule{}); err != nil {
+		if err := db.Table(tableName).AutoMigrate(storageMigrationModel(db.Name())); err != nil {
 			return err
 		}
 	}
@@ -201,6 +216,13 @@ func migrateTable(db *gorm.DB, tableName string) error {
 		quoteIdent(db, tableName),
 		strings.Join(quotedCols, ", "),
 	)).Error
+}
+
+func storageMigrationModel(dialect string) any {
+	if dialect == "postgres" {
+		return &postgresCasbinRule{}
+	}
+	return &casbinRule{}
 }
 
 // IsFiltered returns true once a filtered LoadPolicy has been performed.

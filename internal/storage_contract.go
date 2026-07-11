@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"gorm.io/gorm"
@@ -140,7 +141,10 @@ func StorageSchemaForDialect(dialect StorageDialect, tableName string) (StorageD
 	}
 	switch dialect {
 	case StorageDialectPostgres:
-		descriptor.Columns = storageColumns("bigint", "varchar(512)")
+		// Seven maximum-width four-byte UTF-8 values occupy 2,240 payload
+		// octets, leaving conservative headroom below PostgreSQL's 2,704-byte
+		// B-tree index-row limit.
+		descriptor.Columns = storageColumns("bigint", "varchar(80)")
 	case StorageDialectSQLite:
 		descriptor.Columns = storageColumns("integer", "text")
 	default:
@@ -166,7 +170,7 @@ func ValidateStorage(ctx context.Context, db *gorm.DB, tableName string) error {
 	if db == nil {
 		return newStorageValidationError("table")
 	}
-	dialect := StorageDialect(db.Dialector.Name())
+	dialect := StorageDialect(db.Name())
 	descriptor, err := StorageSchemaForDialect(dialect, tableName)
 	if err != nil {
 		return err
@@ -347,19 +351,30 @@ func storageTypeMatches(required string, actual gorm.ColumnType) bool {
 		return databaseType == "bigint" || databaseType == "bigserial" || databaseType == "int8"
 	case "integer":
 		return databaseType == "integer"
-	case "varchar(512)":
-		if databaseType != "varchar" && databaseType != "character varying" && databaseType != "varchar(512)" {
+	default:
+		width, varchar := storageVarcharWidth(required)
+		if !varchar {
+			return databaseType == normalizeStorageType(required) || fullType == normalizeStorageType(required)
+		}
+		if databaseType != "varchar" && databaseType != "character varying" && databaseType != normalizeStorageType(required) {
 			return false
 		}
 		if length, known := actual.Length(); known {
-			return length == 512
+			return length == width
 		}
-		return fullType == "varchar(512)" || fullType == "character varying(512)" || databaseType == "varchar(512)"
-	case "text":
-		return databaseType == "text"
-	default:
-		return databaseType == normalizeStorageType(required) || fullType == normalizeStorageType(required)
+		return fullType == fmt.Sprintf("varchar(%d)", width) ||
+			fullType == fmt.Sprintf("character varying(%d)", width) ||
+			databaseType == normalizeStorageType(required)
 	}
+}
+
+func storageVarcharWidth(value string) (int64, bool) {
+	normalized := normalizeStorageType(value)
+	if !strings.HasPrefix(normalized, "varchar(") || !strings.HasSuffix(normalized, ")") {
+		return 0, false
+	}
+	width, err := strconv.ParseInt(strings.TrimSuffix(strings.TrimPrefix(normalized, "varchar("), ")"), 10, 64)
+	return width, err == nil && width > 0
 }
 
 func normalizeStorageType(value string) string {
