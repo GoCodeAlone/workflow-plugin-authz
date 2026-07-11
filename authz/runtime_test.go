@@ -3,6 +3,8 @@ package authz
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -10,6 +12,44 @@ import (
 	"testing"
 	"time"
 )
+
+func TestRuntimeConstructionCancelsInitialDatabasePing(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen for stalled PostgreSQL fixture: %v", err)
+	}
+	accepted := make(chan net.Conn, 1)
+	go func() {
+		conn, acceptErr := listener.Accept()
+		if acceptErr == nil {
+			accepted <- conn
+		}
+	}()
+	t.Cleanup(func() {
+		_ = listener.Close()
+		select {
+		case conn := <-accepted:
+			_ = conn.Close()
+		default:
+		}
+	})
+
+	ctx, cancel := context.WithTimeout(t.Context(), 75*time.Millisecond)
+	defer cancel()
+	started := time.Now()
+	_, err = NewRuntime(ctx, RuntimeConfig{
+		Model: runtimeTestModel,
+		Storage: &StorageConfig{
+			Driver:        "postgres",
+			DSN:           fmt.Sprintf("postgres://user:password@%s/authz?sslmode=disable&connect_timeout=1", listener.Addr()),
+			TableName:     "authz_policy",
+			MigrationMode: MigrationModeValidate,
+		},
+	})
+	if elapsed := time.Since(started); !errors.Is(err, context.DeadlineExceeded) || elapsed > 300*time.Millisecond {
+		t.Fatalf("NewRuntime() error=%v elapsed=%s, want prompt deadline cancellation during initial ping", err, elapsed)
+	}
+}
 
 const runtimeTestModel = `[request_definition]
 r = sub, obj, act

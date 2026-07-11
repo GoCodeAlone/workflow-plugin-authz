@@ -248,7 +248,7 @@ func (m *CasbinModule) buildGORMAdapter(ctx context.Context) (persist.Adapter, e
 	}
 
 	silentLogger := gormlogger.Default.LogMode(gormlogger.Silent)
-	gormCfg := &gorm.Config{Logger: silentLogger}
+	gormCfg := &gorm.Config{Logger: silentLogger, DisableAutomaticPing: true}
 
 	var db *gorm.DB
 
@@ -264,6 +264,14 @@ func (m *CasbinModule) buildGORMAdapter(ctx context.Context) (persist.Adapter, e
 	}
 	if err != nil {
 		return nil, fmt.Errorf("authz.casbin %q: open gorm db: %w", m.name, err)
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, fmt.Errorf("authz.casbin %q: access gorm db: %w", m.name, err)
+	}
+	if err := sqlDB.PingContext(ctx); err != nil {
+		_ = sqlDB.Close()
+		return nil, fmt.Errorf("authz.casbin %q: ping gorm db: %w", m.name, err)
 	}
 	db = db.WithContext(ctx)
 
@@ -396,7 +404,7 @@ func (m *CasbinModule) pollLoop(interval time.Duration) {
 	}
 }
 
-// Stop shuts down the polling watcher if running.
+// Stop shuts down the polling watcher and releases the module's storage.
 func (m *CasbinModule) Stop(_ context.Context) error {
 	m.mu.RLock()
 	stopCh := m.stopCh
