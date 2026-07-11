@@ -48,6 +48,26 @@ handler, err := adminapi.NewHandler(adminapi.Options{
 })
 ```
 
+New read-only hosts should use `adminapi/v2.NewHandler` with the standalone
+`authz.NewRuntime`. Version 2 exposes only the authenticated principal,
+capabilities, role assignments, immutable policies, and decisions:
+
+- `GET /api/authz/principal`
+- `GET /api/authz/capabilities`
+- `GET /api/authz/roles`
+- `GET /api/authz/policies`
+- `POST /api/authz/decision`
+
+The decision body contains only `object` and `action`; the provider derives the
+effective subject or role from the trusted principal. Known role and policy
+mutation methods return `405 Method Not Allowed`. Version 1 remains unchanged
+for existing consumers that intentionally use its mutable provider interface.
+
+The standalone runtime accepts exactly one policy source: PostgreSQL/SQLite
+storage with an explicit migration mode, or an immutable in-memory seed. It
+loads one deterministic snapshot, performs no watcher reloads, and reports
+storage degradation without invalidating loaded decisions.
+
 ## authz.casbin module
 
 Loads a Casbin PERM model and policy from inline YAML config. The enforcer is thread-safe and shared with all `step.authz_check_casbin` steps that reference the module by name.

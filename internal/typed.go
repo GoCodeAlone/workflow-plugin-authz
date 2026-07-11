@@ -23,7 +23,7 @@ func casbinModuleConfigToMap(cfg *contracts.CasbinModuleConfig) map[string]any {
 		out["roleAssignments"] = assignments
 	}
 	if adapter := cfg.GetAdapter(); adapter != nil {
-		out["adapter"] = compactMap(map[string]any{
+		adapterMap := compactMap(map[string]any{
 			"type":         adapter.GetType(),
 			"path":         adapter.GetPath(),
 			"driver":       adapter.GetDriver(),
@@ -33,6 +33,10 @@ func casbinModuleConfigToMap(cfg *contracts.CasbinModuleConfig) map[string]any {
 			"filter_field": adapter.GetFilterField(),
 			"filter_value": adapter.GetFilterValue(),
 		})
+		if migrationMode := adapter.GetMigrationMode(); migrationMode != nil {
+			adapterMap["migration_mode"] = migrationMode.AsInterface()
+		}
+		out["adapter"] = adapterMap
 	}
 	if watcher := cfg.GetWatcher(); watcher != nil {
 		out["watcher"] = compactMap(map[string]any{

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"text/template"
@@ -28,6 +29,7 @@ type CasbinModule struct {
 	config     casbinConfig
 	mu         sync.RWMutex
 	enforcer   *casbin.Enforcer
+	storageDB  *gorm.DB
 	scopeRoles *scopeRoleStore
 	abac       *attributePolicyStore
 	relations  *relationTupleStore
@@ -61,6 +63,11 @@ type adapterConfig struct {
 	// persist.FilteredAdapter and only loads/saves matching rows.
 	FilterField string `yaml:"filter_field"`
 	FilterValue string `yaml:"filter_value"`
+
+	// MigrationMode controls whether the adapter updates or only validates the
+	// schema. Strict validation supports PostgreSQL and SQLite; legacy MySQL
+	// configurations remain auto-migration only.
+	MigrationMode MigrationMode `yaml:"migration_mode"`
 }
 
 // watcherConfig describes the optional polling reload behaviour.
@@ -138,7 +145,11 @@ func parseCasbinConfig(raw map[string]any) (casbinConfig, error) {
 
 	// Parse adapter section.
 	if adapterRaw, ok := raw["adapter"].(map[string]any); ok {
-		cfg.Adapter = parseAdapterConfig(adapterRaw)
+		adapter, err := parseAdapterConfig(adapterRaw)
+		if err != nil {
+			return cfg, fmt.Errorf("config.adapter: %w", err)
+		}
+		cfg.Adapter = adapter
 	}
 
 	// Parse watcher section.
@@ -150,7 +161,7 @@ func parseCasbinConfig(raw map[string]any) (casbinConfig, error) {
 }
 
 // parseAdapterConfig parses the adapter sub-map.
-func parseAdapterConfig(raw map[string]any) adapterConfig {
+func parseAdapterConfig(raw map[string]any) (adapterConfig, error) {
 	var a adapterConfig
 	a.Type, _ = raw["type"].(string)
 	a.Path, _ = raw["path"].(string)
@@ -160,7 +171,12 @@ func parseAdapterConfig(raw map[string]any) adapterConfig {
 	a.Tenant, _ = raw["tenant"].(string)
 	a.FilterField, _ = raw["filter_field"].(string)
 	a.FilterValue, _ = raw["filter_value"].(string)
-	return a
+	mode, err := DecodeMigrationMode(raw)
+	if err != nil {
+		return a, err
+	}
+	a.MigrationMode = mode
+	return a, nil
 }
 
 // parseWatcherConfig parses the watcher sub-map.
@@ -196,7 +212,7 @@ func toStringSlice(v any) ([]string, error) {
 }
 
 // buildAdapter returns a persist.Adapter for the configured backend.
-func (m *CasbinModule) buildAdapter() (persist.Adapter, error) {
+func (m *CasbinModule) buildAdapter(ctx context.Context) (persist.Adapter, error) {
 	switch strings.ToLower(m.config.Adapter.Type) {
 	case "", "memory":
 		return newInMemoryAdapter(m.config.Policies, m.config.RoleAssignments), nil
@@ -208,7 +224,7 @@ func (m *CasbinModule) buildAdapter() (persist.Adapter, error) {
 		return fileadapter.NewAdapter(m.config.Adapter.Path), nil
 
 	case "gorm":
-		return m.buildGORMAdapter()
+		return m.buildGORMAdapter(ctx)
 
 	default:
 		return nil, fmt.Errorf("authz.casbin %q: unknown adapter type %q", m.name, m.config.Adapter.Type)
@@ -216,23 +232,32 @@ func (m *CasbinModule) buildAdapter() (persist.Adapter, error) {
 }
 
 // buildGORMAdapter opens a GORM connection and returns a gorm-adapter.
-func (m *CasbinModule) buildGORMAdapter() (persist.Adapter, error) {
+func (m *CasbinModule) buildGORMAdapter(ctx context.Context) (persist.Adapter, error) {
+	driver := normalizeGORMDriver(m.config.Adapter.Driver)
+	if m.config.Adapter.MigrationMode == MigrationModeValidate && driver == "mysql" {
+		return nil, newStorageValidationError("dialect")
+	}
+	// Resolve the pure configuration boundary before opening a database so a
+	// malformed template cannot leave an unowned connection pool behind.
+	tableName, err := resolveTableNameTemplate(m.config.Adapter.TableName, m.config.Adapter)
+	if err != nil {
+		return nil, fmt.Errorf("authz.casbin %q: %w", m.name, err)
+	}
 	if m.config.Adapter.DSN == "" {
 		return nil, fmt.Errorf("authz.casbin %q: adapter.dsn is required for gorm adapter", m.name)
 	}
 
 	silentLogger := gormlogger.Default.LogMode(gormlogger.Silent)
-	gormCfg := &gorm.Config{Logger: silentLogger}
+	gormCfg := &gorm.Config{Logger: silentLogger, DisableAutomaticPing: true}
 
 	var db *gorm.DB
-	var err error
 
-	switch strings.ToLower(m.config.Adapter.Driver) {
-	case "postgres", "postgresql":
+	switch driver {
+	case "postgres":
 		db, err = gorm.Open(postgres.Open(m.config.Adapter.DSN), gormCfg)
 	case "mysql":
 		db, err = gorm.Open(mysql.Open(m.config.Adapter.DSN), gormCfg)
-	case "sqlite3", "sqlite":
+	case "sqlite":
 		db, err = gorm.Open(openSQLite(m.config.Adapter.DSN), gormCfg)
 	default:
 		return nil, fmt.Errorf("authz.casbin %q: unsupported gorm driver %q (supported: postgres, mysql, sqlite3)", m.name, m.config.Adapter.Driver)
@@ -240,19 +265,41 @@ func (m *CasbinModule) buildGORMAdapter() (persist.Adapter, error) {
 	if err != nil {
 		return nil, fmt.Errorf("authz.casbin %q: open gorm db: %w", m.name, err)
 	}
-
-	// Option B: resolve table_name template (e.g. "casbin_rule_{{.Tenant}}").
-	tableName, err := resolveTableNameTemplate(m.config.Adapter.TableName, m.config.Adapter)
+	sqlDB, err := db.DB()
 	if err != nil {
-		return nil, fmt.Errorf("authz.casbin %q: %w", m.name, err)
+		return nil, fmt.Errorf("authz.casbin %q: access gorm db: %w", m.name, err)
 	}
+	if err := sqlDB.PingContext(ctx); err != nil {
+		_ = sqlDB.Close()
+		return nil, fmt.Errorf("authz.casbin %q: ping gorm db: %w", m.name, err)
+	}
+	db = db.WithContext(ctx)
 
 	// Option A: pass filter fields for tenant-scoped policy loading.
-	a, err := newGORMAdapter(db, tableName, m.config.Adapter.FilterField, m.config.Adapter.FilterValue)
+	a, err := newGORMAdapterContext(ctx, db, tableName, m.config.Adapter.FilterField, m.config.Adapter.FilterValue, m.config.Adapter.MigrationMode)
 	if err != nil {
+		if sqlDB, dbErr := db.DB(); dbErr == nil {
+			_ = sqlDB.Close()
+		}
+		if isStorageValidationError(err) {
+			return nil, err
+		}
 		return nil, fmt.Errorf("authz.casbin %q: create gorm adapter: %w", m.name, err)
 	}
 	return a, nil
+}
+
+func normalizeGORMDriver(driver string) string {
+	switch strings.ToLower(strings.TrimSpace(driver)) {
+	case "postgres", "postgresql":
+		return "postgres"
+	case "sqlite", "sqlite3":
+		return "sqlite"
+	case "mysql":
+		return "mysql"
+	default:
+		return strings.ToLower(strings.TrimSpace(driver))
+	}
 }
 
 // resolveTableNameTemplate resolves a Go template in tableName.
@@ -275,6 +322,15 @@ func resolveTableNameTemplate(tableName string, cfg adapterConfig) (string, erro
 
 // Init builds the Casbin enforcer from the configured adapter.
 func (m *CasbinModule) Init() error {
+	return m.InitContext(context.Background())
+}
+
+// InitContext builds the Casbin enforcer and binds storage initialization and
+// the initial policy load to ctx.
+func (m *CasbinModule) InitContext(ctx context.Context) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -283,17 +339,28 @@ func (m *CasbinModule) Init() error {
 		return fmt.Errorf("authz.casbin %q: parse model: %w", m.name, err)
 	}
 
-	adapter, err := m.buildAdapter()
+	adapter, err := m.buildAdapter(ctx)
 	if err != nil {
+		if isStorageValidationError(err) {
+			return err
+		}
 		return fmt.Errorf("authz.casbin %q: build adapter: %w", m.name, err)
 	}
 
 	e, err := casbin.NewEnforcer(md, adapter)
 	if err != nil {
+		if gormAdapter, ok := adapter.(*gormAdapter); ok {
+			if sqlDB, dbErr := gormAdapter.db.DB(); dbErr == nil {
+				_ = sqlDB.Close()
+			}
+		}
 		return fmt.Errorf("authz.casbin %q: create enforcer: %w", m.name, err)
 	}
 
 	m.enforcer = e
+	if gormAdapter, ok := adapter.(*gormAdapter); ok {
+		m.storageDB = gormAdapter.db
+	}
 	return nil
 }
 
@@ -337,7 +404,7 @@ func (m *CasbinModule) pollLoop(interval time.Duration) {
 	}
 }
 
-// Stop shuts down the polling watcher if running.
+// Stop shuts down the polling watcher and releases the module's storage.
 func (m *CasbinModule) Stop(_ context.Context) error {
 	m.mu.RLock()
 	stopCh := m.stopCh
@@ -352,7 +419,7 @@ func (m *CasbinModule) Stop(_ context.Context) error {
 		m.doneCh = nil
 		m.mu.Unlock()
 	}
-	return nil
+	return m.CloseStorage()
 }
 
 // Enforce checks whether sub can perform act on obj with optional extra request
@@ -375,6 +442,60 @@ func (m *CasbinModule) Enforce(sub, obj, act string, extra ...string) (bool, err
 	args[1+len(extra)] = obj
 	args[1+len(extra)+1] = act
 	return e.Enforce(args...)
+}
+
+// PolicySnapshot returns a deep copy of the loaded policy without reloading
+// its adapter. Standalone runtimes use this to publish an immutable startup
+// snapshot.
+func (m *CasbinModule) PolicySnapshot() ([][]string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if m.enforcer == nil {
+		return nil, fmt.Errorf("authz.casbin %q: enforcer not initialized", m.name)
+	}
+	policies, err := m.enforcer.GetPolicy()
+	if err != nil {
+		return nil, err
+	}
+	out := make([][]string, len(policies))
+	for i, policy := range policies {
+		out[i] = slices.Clone(policy)
+	}
+	return out, nil
+}
+
+// PingStorage checks the persistent adapter without loading policy. The bool
+// reports whether the module has persistent storage.
+func (m *CasbinModule) PingStorage(ctx context.Context) (bool, error) {
+	m.mu.RLock()
+	db := m.storageDB
+	m.mu.RUnlock()
+	if db == nil {
+		return false, nil
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		return true, err
+	}
+	return true, sqlDB.PingContext(ctx)
+}
+
+// CloseStorage releases the persistent adapter and invalidates the enforcer.
+// Callers must prevent concurrent decisions while this method runs.
+func (m *CasbinModule) CloseStorage() error {
+	m.mu.Lock()
+	db := m.storageDB
+	m.storageDB = nil
+	m.enforcer = nil
+	m.mu.Unlock()
+	if db == nil {
+		return nil
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		return err
+	}
+	return sqlDB.Close()
 }
 
 // AddPolicy adds a policy rule and saves it to the adapter.

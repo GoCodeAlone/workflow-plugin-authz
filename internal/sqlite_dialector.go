@@ -79,6 +79,25 @@ type sqliteMigrator struct {
 	migrator.Migrator
 }
 
+type sqliteColumnInfo struct {
+	Name         string         `gorm:"column:name"`
+	Type         string         `gorm:"column:type"`
+	NotNull      int            `gorm:"column:not_null"`
+	DefaultValue sql.NullString `gorm:"column:default_value"`
+	PrimaryKey   int            `gorm:"column:primary_key"`
+}
+
+type sqliteIndexInfo struct {
+	Name       string `gorm:"column:name"`
+	Unique     int    `gorm:"column:is_unique"`
+	PrimaryKey bool   `gorm:"column:is_primary_key"`
+	Partial    bool   `gorm:"column:is_partial"`
+}
+
+type sqliteIndexColumn struct {
+	Name string `gorm:"column:name"`
+}
+
 // HasTable reports whether the named table exists in the SQLite database.
 func (m sqliteMigrator) HasTable(value interface{}) bool {
 	var count int
@@ -115,6 +134,80 @@ func (m sqliteMigrator) HasColumn(value interface{}, name string) bool {
 		).Row().Scan(&count)
 	})
 	return count > 0
+}
+
+// ColumnTypes returns SQLite column metadata including nullability and primary
+// keys, which the generic migrator cannot infer from database/sql metadata.
+func (m sqliteMigrator) ColumnTypes(value interface{}) (columns []gorm.ColumnType, err error) {
+	err = m.RunWithValue(value, func(stmt *gorm.Statement) error {
+		var rows []sqliteColumnInfo
+		if err := m.DB.Raw(`
+			SELECT name, type, "notnull" AS not_null, dflt_value AS default_value, pk AS primary_key
+			FROM pragma_table_info(?)
+			ORDER BY cid`, stmt.Table).Scan(&rows).Error; err != nil {
+			return err
+		}
+		columns = make([]gorm.ColumnType, 0, len(rows))
+		for _, row := range rows {
+			primaryKey := row.PrimaryKey > 0
+			columns = append(columns, migrator.ColumnType{
+				NameValue:          sql.NullString{String: row.Name, Valid: true},
+				DataTypeValue:      sql.NullString{String: row.Type, Valid: true},
+				ColumnTypeValue:    sql.NullString{String: row.Type, Valid: true},
+				PrimaryKeyValue:    sql.NullBool{Bool: primaryKey, Valid: true},
+				AutoIncrementValue: sql.NullBool{Bool: primaryKey && row.Type == "INTEGER", Valid: true},
+				NullableValue:      sql.NullBool{Bool: !primaryKey && row.NotNull == 0, Valid: true},
+				DefaultValueValue:  row.DefaultValue,
+			})
+		}
+		return nil
+	})
+	return columns, err
+}
+
+// GetIndexes returns named SQLite indexes and their ordered columns.
+func (m sqliteMigrator) GetIndexes(value interface{}) (indexes []gorm.Index, err error) {
+	err = m.RunWithValue(value, func(stmt *gorm.Statement) error {
+		var rows []sqliteIndexInfo
+		if err := m.DB.Raw(`
+			SELECT name, "unique" AS is_unique, origin = 'pk' AS is_primary_key, "partial" AS is_partial
+			FROM pragma_index_list(?)
+			ORDER BY seq`, stmt.Table).Scan(&rows).Error; err != nil {
+			return err
+		}
+		indexes = make([]gorm.Index, 0, len(rows))
+		for _, row := range rows {
+			option := ""
+			if row.Partial {
+				option = "partial"
+			}
+			var columnRows []sqliteIndexColumn
+			if err := m.DB.Raw(`
+				SELECT name
+				FROM pragma_index_info(?)
+				ORDER BY seqno`, row.Name).Scan(&columnRows).Error; err != nil {
+				return err
+			}
+			columnNames := make([]string, 0, len(columnRows))
+			for _, column := range columnRows {
+				columnNames = append(columnNames, column.Name)
+			}
+			indexes = append(indexes, migrator.Index{
+				TableName:  stmt.Table,
+				NameValue:  row.Name,
+				ColumnList: columnNames,
+				PrimaryKeyValue: sql.NullBool{
+					Bool: row.PrimaryKey, Valid: true,
+				},
+				UniqueValue: sql.NullBool{
+					Bool: row.Unique != 0, Valid: true,
+				},
+				OptionValue: option,
+			})
+		}
+		return nil
+	})
+	return indexes, err
 }
 
 func (d *sqliteDialector) BindVarTo(writer clause.Writer, stmt *gorm.Statement, v interface{}) {

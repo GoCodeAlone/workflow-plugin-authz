@@ -11,6 +11,7 @@ package internal
 // so each tenant's policies live in a dedicated table.
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -60,13 +61,13 @@ type GORMFilter struct {
 // with a per-table name ("uidx_<tableName>").
 type casbinRule struct {
 	ID    uint   `gorm:"primarykey;autoIncrement"`
-	Ptype string `gorm:"size:512"`
-	V0    string `gorm:"size:512"`
-	V1    string `gorm:"size:512"`
-	V2    string `gorm:"size:512"`
-	V3    string `gorm:"size:512"`
-	V4    string `gorm:"size:512"`
-	V5    string `gorm:"size:512"`
+	Ptype string `gorm:"size:512;not null"`
+	V0    string `gorm:"size:512;not null"`
+	V1    string `gorm:"size:512;not null"`
+	V2    string `gorm:"size:512;not null"`
+	V3    string `gorm:"size:512;not null"`
+	V4    string `gorm:"size:512;not null"`
+	V5    string `gorm:"size:512;not null"`
 }
 
 // TableName returns the default gorm table name.
@@ -108,10 +109,18 @@ func (a *gormAdapter) table() *gorm.DB {
 	return a.db.Table(a.tableName)
 }
 
-// newGORMAdapter auto-migrates the table and returns an adapter.
+// newGORMAdapter prepares the table according to the selected migration mode
+// and returns an adapter. Calls without a mode preserve legacy auto migration.
 // filterField and filterValue implement Option A (tenant-scoped WHERE clause).
 // Pass empty strings to disable filtering.
-func newGORMAdapter(db *gorm.DB, tableName, filterField, filterValue string) (*gormAdapter, error) {
+func newGORMAdapter(db *gorm.DB, tableName, filterField, filterValue string, modes ...MigrationMode) (*gormAdapter, error) {
+	return newGORMAdapterContext(context.Background(), db, tableName, filterField, filterValue, modes...)
+}
+
+func newGORMAdapterContext(ctx context.Context, db *gorm.DB, tableName, filterField, filterValue string, modes ...MigrationMode) (*gormAdapter, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if tableName == "" {
 		tableName = "casbin_rule"
 	}
@@ -131,8 +140,25 @@ func newGORMAdapter(db *gorm.DB, tableName, filterField, filterValue string) (*g
 	if (filterField == "") != (filterValue == "") {
 		return nil, fmt.Errorf("gorm casbin adapter: filter_field and filter_value must both be set or both be empty")
 	}
-	if err := migrateTable(db, tableName); err != nil {
-		return nil, fmt.Errorf("gorm casbin adapter: migrate: %w", err)
+	mode := MigrationModeAuto
+	if len(modes) > 1 {
+		return nil, fmt.Errorf("gorm casbin adapter: expected at most one migration mode")
+	}
+	if len(modes) == 1 {
+		mode = modes[0]
+	}
+	if err := ValidateMigrationMode(mode); err != nil {
+		return nil, fmt.Errorf("gorm casbin adapter: %w", err)
+	}
+	switch mode {
+	case MigrationModeAuto:
+		if err := migrateTable(db, tableName); err != nil {
+			return nil, fmt.Errorf("gorm casbin adapter: migrate: %w", err)
+		}
+	case MigrationModeValidate:
+		if err := ValidateStorage(ctx, db, tableName); err != nil {
+			return nil, err
+		}
 	}
 	return &gormAdapter{
 		db:          db,
@@ -158,7 +184,7 @@ func migrateTable(db *gorm.DB, tableName string) error {
 	tableExists := db.Migrator().HasTable(tableName)
 
 	if !isSQLite || !tableExists {
-		if err := db.Table(tableName).AutoMigrate(&casbinRule{}); err != nil {
+		if err := db.Table(tableName).AutoMigrate(storageMigrationModel(db.Name())); err != nil {
 			return err
 		}
 	}
@@ -182,6 +208,13 @@ func migrateTable(db *gorm.DB, tableName string) error {
 		quoteIdent(db, tableName),
 		strings.Join(quotedCols, ", "),
 	)).Error
+}
+
+// storageMigrationModel intentionally preserves the historical auto-migration
+// width on every dialect. Hosts opt into the stricter PostgreSQL contract by
+// provisioning it themselves and selecting validate mode.
+func storageMigrationModel(string) any {
+	return &casbinRule{}
 }
 
 // IsFiltered returns true once a filtered LoadPolicy has been performed.

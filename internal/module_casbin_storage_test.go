@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -86,13 +87,40 @@ func TestPollingWatcher_StartStop(t *testing.T) {
 		t.Fatalf("Stop: %v", err)
 	}
 
-	// Ensure enforcement still works after stop.
-	allowed, err := m.Enforce("alice", "/api/data", "GET")
-	if err != nil {
-		t.Fatalf("Enforce after stop: %v", err)
+	// Stop is the module lifecycle boundary, so the enforcer is no longer usable.
+	if _, err := m.Enforce("alice", "/api/data", "GET"); err == nil {
+		t.Fatal("Enforce() succeeded after module shutdown")
 	}
-	if !allowed {
-		t.Error("expected alice to still be allowed after watcher stop")
+}
+
+func TestCasbinModuleStopClosesPersistentStorage(t *testing.T) {
+	dsn := "file:" + filepath.Join(t.TempDir(), "stop.db")
+	m, err := newCasbinModule("authz", map[string]any{
+		"model": testModel,
+		"adapter": map[string]any{
+			"type":   "gorm",
+			"driver": "sqlite3",
+			"dsn":    dsn,
+		},
+	})
+	if err != nil {
+		t.Fatalf("newCasbinModule(): %v", err)
+	}
+	if err := m.Init(); err != nil {
+		t.Fatalf("Init(): %v", err)
+	}
+	sqlDB, err := m.storageDB.DB()
+	if err != nil {
+		t.Fatalf("storage DB(): %v", err)
+	}
+	if err := m.Stop(t.Context()); err != nil {
+		t.Fatalf("Stop(): %v", err)
+	}
+	if err := sqlDB.PingContext(t.Context()); err == nil || !strings.Contains(err.Error(), "database is closed") {
+		t.Fatalf("PingContext() after Stop = %v, want closed database", err)
+	}
+	if err := m.Stop(t.Context()); err != nil {
+		t.Fatalf("second Stop(): %v", err)
 	}
 }
 
@@ -585,22 +613,22 @@ func TestGORMAdapter_TableNameTemplate(t *testing.T) {
 }
 
 // TestGORMAdapter_TableNameTemplate_Invalid checks that an invalid template
-// expression is rejected at Init time.
+// expression is rejected before the adapter attempts to open its database.
 func TestGORMAdapter_TableNameTemplate_Invalid(t *testing.T) {
 	m, err := newCasbinModule("authz", map[string]any{
 		"model": testModel,
 		"adapter": map[string]any{
 			"type":       "gorm",
-			"driver":     "sqlite3",
-			"dsn":        ":memory:",
+			"driver":     "postgres",
+			"dsn":        "not a valid postgres DSN %",
 			"table_name": "casbin_rule_{{.Unclosed", // broken template
 		},
 	})
 	if err != nil {
 		t.Fatalf("newCasbinModule: %v", err)
 	}
-	if err := m.Init(); err == nil {
-		t.Error("expected Init to fail for invalid table_name template")
+	if err := m.Init(); err == nil || !strings.Contains(err.Error(), "parse table_name template") {
+		t.Fatalf("Init() error = %v, want table-name rejection before database open", err)
 	}
 }
 
