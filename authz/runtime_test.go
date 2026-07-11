@@ -203,6 +203,9 @@ func TestRuntimeHealthDoesNotGateLoadedSnapshot(t *testing.T) {
 	if time.Since(started) > time.Second {
 		t.Fatal("Health ignored the caller deadline")
 	}
+	if health := runtime.Health(t.Context()); health.Status != HealthDegraded {
+		t.Fatalf("Health(internal timeout) = %#v, want degraded", health)
+	}
 }
 
 func TestRuntimeCloseIsIdempotentAndRaceSafe(t *testing.T) {

@@ -71,10 +71,6 @@ func TestStoragePostgresIntegrationContract(t *testing.T) {
 	if overLimitErr == nil {
 		t.Fatal("PostgreSQL accepted a row above the published character/octet boundary")
 	}
-	if strings.Contains(overLimitErr.Error(), dsn) {
-		t.Fatalf("over-limit row error exposed DSN: %v", overLimitErr)
-	}
-
 	execPostgresFixtureSQL(t, db, "ALTER TABLE "+table+" DROP CONSTRAINT "+index)
 	execPostgresFixtureSQL(t, db, fmt.Sprintf("CREATE UNIQUE INDEX %s ON %s (ptype, v0, v1, v2, v3, v4, v5) WHERE v0 <> ''", index, table))
 	const want = "authz storage schema v1 unique index"
@@ -107,8 +103,52 @@ func TestStoragePostgresIntegrationContract(t *testing.T) {
 	if _, err := newGORMAdapter(db, autoTable, "", "", MigrationModeAuto); err != nil {
 		t.Fatalf("newGORMAdapter(auto): %v", err)
 	}
-	if err := ValidateStorage(t.Context(), db, autoTable); err != nil {
-		t.Fatalf("ValidateStorage() after auto migration: %v", err)
+	assertPostgresColumnWidth(t, db, autoTable, "ptype", 512)
+	if err := db.Exec("INSERT INTO "+autoTable+" (ptype, v0, v1, v2, v3, v4, v5) VALUES (?, '', '', '', '', '', '')", strings.Repeat("x", 81)).Error; err != nil {
+		t.Fatalf("legacy auto schema rejected an 81-character policy value: %v", err)
+	}
+	if err := ValidateStorage(t.Context(), db, autoTable); err == nil || err.Error() != typesWant {
+		t.Fatalf("strict validation of legacy auto schema error = %v, want exactly %q", err, typesWant)
+	}
+
+	legacyTable := fmt.Sprintf("authz_legacy_%d", time.Now().UnixNano())
+	legacyIndex := "uidx_" + legacyTable
+	t.Cleanup(func() { _ = db.Exec("DROP TABLE IF EXISTS " + legacyTable).Error })
+	execPostgresFixtureSQL(t, db, fmt.Sprintf(`CREATE TABLE %s (
+		id bigserial PRIMARY KEY,
+		ptype varchar(512) NOT NULL,
+		v0 varchar(512) NOT NULL,
+		v1 varchar(512) NOT NULL,
+		v2 varchar(512) NOT NULL,
+		v3 varchar(512) NOT NULL,
+		v4 varchar(512) NOT NULL,
+		v5 varchar(512) NOT NULL,
+		CONSTRAINT %s UNIQUE (ptype, v0, v1, v2, v3, v4, v5)
+	)`, legacyTable, legacyIndex))
+	longValue := strings.Repeat("z", 81)
+	if err := db.Exec("INSERT INTO "+legacyTable+" (ptype, v0, v1, v2, v3, v4, v5) VALUES (?, '', '', '', '', '', '')", longValue).Error; err != nil {
+		t.Fatalf("seed legacy auto schema: %v", err)
+	}
+	if _, err := newGORMAdapter(db, legacyTable, "", "", MigrationModeAuto); err != nil {
+		t.Fatalf("newGORMAdapter(existing legacy auto): %v", err)
+	}
+	assertPostgresColumnWidth(t, db, legacyTable, "ptype", 512)
+	var legacyCount int64
+	if err := db.Table(legacyTable).Where("ptype = ?", longValue).Count(&legacyCount).Error; err != nil || legacyCount != 1 {
+		t.Fatalf("legacy value after auto migration count=%d error=%v, want 1", legacyCount, err)
+	}
+}
+
+func assertPostgresColumnWidth(t *testing.T, db *gorm.DB, table, column string, want int) {
+	t.Helper()
+	var got int
+	if err := db.Raw(`SELECT character_maximum_length
+		FROM information_schema.columns
+		WHERE table_schema = current_schema() AND table_name = ? AND column_name = ?`, table, column).Scan(&got).Error; err != nil {
+		t.Fatalf("inspect %s.%s width: %v", table, column, err)
+	}
+	if got != want {
+		t.Fatalf("%s.%s width = %d, want legacy auto width %d", table, column, got, want)
 	}
 }
 

@@ -144,9 +144,12 @@ func NewRuntime(ctx context.Context, config RuntimeConfig) (*Runtime, error) {
 
 	module, err := internal.NewCasbinModuleFromConfig("standalone", raw)
 	if err == nil {
-		err = module.Init()
+		err = module.InitContext(ctx)
 	}
 	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, fmt.Errorf("authz runtime: %w", ctxErr)
+		}
 		if persistent {
 			if internal.IsStorageValidationError(err) {
 				return nil, err
@@ -269,7 +272,7 @@ func (r *Runtime) Health(ctx context.Context) Health {
 	pingCtx, cancel := context.WithTimeout(ctx, healthPingLimit)
 	defer cancel()
 	if err := r.ping(pingCtx); err != nil {
-		if pingCtx.Err() != nil {
+		if ctx.Err() != nil {
 			return Health{Status: HealthUnknown}
 		}
 		return Health{Status: HealthDegraded}

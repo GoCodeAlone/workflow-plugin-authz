@@ -16,7 +16,7 @@ func TestStorageMigrationModelsPreserveDialectWidths(t *testing.T) {
 		dialect string
 		width   int
 	}{
-		{dialect: "postgres", width: 80},
+		{dialect: "postgres", width: 512},
 		{dialect: "mysql", width: 512},
 		{dialect: "sqlite", width: 512},
 	} {

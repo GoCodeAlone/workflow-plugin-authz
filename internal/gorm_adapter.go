@@ -70,21 +70,6 @@ type casbinRule struct {
 	V5    string `gorm:"size:512;not null"`
 }
 
-// postgresCasbinRule uses a conservative width for the seven-column unique
-// index so every descriptor-valid row remains below PostgreSQL's B-tree key
-// limit. MySQL keeps the legacy 512-character model above; SQLite maps both
-// sizes to text and continues using that legacy model.
-type postgresCasbinRule struct {
-	ID    uint   `gorm:"primarykey;autoIncrement"`
-	Ptype string `gorm:"size:80;not null"`
-	V0    string `gorm:"size:80;not null"`
-	V1    string `gorm:"size:80;not null"`
-	V2    string `gorm:"size:80;not null"`
-	V3    string `gorm:"size:80;not null"`
-	V4    string `gorm:"size:80;not null"`
-	V5    string `gorm:"size:80;not null"`
-}
-
 // TableName returns the default gorm table name.
 // When a custom table name is needed the caller uses db.Table(name) explicitly.
 func (casbinRule) TableName() string { return "casbin_rule" }
@@ -129,6 +114,13 @@ func (a *gormAdapter) table() *gorm.DB {
 // filterField and filterValue implement Option A (tenant-scoped WHERE clause).
 // Pass empty strings to disable filtering.
 func newGORMAdapter(db *gorm.DB, tableName, filterField, filterValue string, modes ...MigrationMode) (*gormAdapter, error) {
+	return newGORMAdapterContext(context.Background(), db, tableName, filterField, filterValue, modes...)
+}
+
+func newGORMAdapterContext(ctx context.Context, db *gorm.DB, tableName, filterField, filterValue string, modes ...MigrationMode) (*gormAdapter, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if tableName == "" {
 		tableName = "casbin_rule"
 	}
@@ -164,7 +156,7 @@ func newGORMAdapter(db *gorm.DB, tableName, filterField, filterValue string, mod
 			return nil, fmt.Errorf("gorm casbin adapter: migrate: %w", err)
 		}
 	case MigrationModeValidate:
-		if err := ValidateStorage(context.Background(), db, tableName); err != nil {
+		if err := ValidateStorage(ctx, db, tableName); err != nil {
 			return nil, err
 		}
 	}
@@ -218,10 +210,10 @@ func migrateTable(db *gorm.DB, tableName string) error {
 	)).Error
 }
 
-func storageMigrationModel(dialect string) any {
-	if dialect == "postgres" {
-		return &postgresCasbinRule{}
-	}
+// storageMigrationModel intentionally preserves the historical auto-migration
+// width on every dialect. Hosts opt into the stricter PostgreSQL contract by
+// provisioning it themselves and selecting validate mode.
+func storageMigrationModel(string) any {
 	return &casbinRule{}
 }
 
